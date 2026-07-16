@@ -1,0 +1,176 @@
+const db = require('../db');
+
+const BASE_APPOINTMENT_SELECT = `
+  SELECT a.id, a.patient_id, a.appointment_date, a.reminder_sent, a.visited, a.missed_sent,
+         p.name AS patient_name, p.phone AS patient_phone, p.language
+  FROM appointments a
+  JOIN patients p ON a.patient_id = p.id
+`;
+
+const SORT_COLUMNS = {
+  id: 'a.id',
+  patient_name: 'p.name',
+  patient_phone: 'p.phone',
+  appointment_date: 'a.appointment_date',
+  status: 'a.appointment_date',
+  language: 'p.language',
+  created_at: 'a.created_at'
+};
+
+const buildFilters = (filters = {}) => {
+  const where = [];
+  const params = [];
+
+  if (filters.search) {
+    where.push('(p.name LIKE ? OR p.phone LIKE ? OR DATE_FORMAT(a.appointment_date, "%Y-%m-%d") LIKE ? OR p.language LIKE ?)');
+    const search = `%${filters.search}%`;
+    params.push(search, search, search, search);
+  }
+
+  if (filters.appointment_date) {
+    where.push('a.appointment_date = ?');
+    params.push(filters.appointment_date);
+  }
+
+  if (filters.language) {
+    where.push('p.language = ?');
+    params.push(filters.language);
+  }
+
+  if (filters.status) {
+    const status = String(filters.status).toLowerCase();
+    if (status === 'visited') {
+      where.push('a.visited = TRUE');
+    } else if (status === 'missed') {
+      where.push('a.visited = FALSE AND a.appointment_date < CURDATE()');
+    } else if (status === 'today') {
+      where.push('a.visited = FALSE AND a.appointment_date = CURDATE()');
+    } else if (status === 'upcoming') {
+      where.push('a.visited = FALSE AND a.appointment_date > CURDATE()');
+    }
+  }
+
+  return {
+    whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    params
+  };
+};
+
+const findAllWithPatients = async (options = {}) => {
+  const { whereSql, params } = buildFilters(options);
+  const sortColumn = SORT_COLUMNS[options.sortBy] || SORT_COLUMNS.appointment_date;
+  const sortOrder = String(options.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  const page = Number(options.page);
+  const limit = Number(options.limit);
+  const hasPagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
+  const offset = hasPagination ? (page - 1) * limit : 0;
+
+  const [rows] = await db.query(`
+    ${BASE_APPOINTMENT_SELECT}
+    ${whereSql}
+    ORDER BY ${sortColumn} ${sortOrder}
+    ${hasPagination ? 'LIMIT ? OFFSET ?' : ''}
+  `, hasPagination ? [...params, limit, offset] : params);
+
+  if (!hasPagination && !whereSql) {
+    return { rows, total: rows.length };
+  }
+
+  const [countRows] = await db.query(`
+    SELECT COUNT(*) AS total
+    FROM appointments a
+    JOIN patients p ON a.patient_id = p.id
+    ${whereSql}
+  `, params);
+
+  return {
+    rows,
+    total: countRows[0].total,
+    pagination: hasPagination ? { page, limit, total: countRows[0].total, totalPages: Math.ceil(countRows[0].total / limit) } : null
+  };
+};
+
+const findById = async (id) => {
+  const [rows] = await db.query('SELECT * FROM appointments WHERE id = ?', [id]);
+  return rows[0] || null;
+};
+
+const create = async ({ patient_id, appointment_date }) => {
+  const [result] = await db.query(
+    'INSERT INTO appointments (patient_id, appointment_date, reminder_sent, visited, missed_sent) VALUES (?, ?, FALSE, FALSE, FALSE)',
+    [patient_id, appointment_date]
+  );
+
+  return {
+    id: result.insertId,
+    patient_id,
+    appointment_date,
+    reminder_sent: false,
+    visited: false,
+    missed_sent: false
+  };
+};
+
+const markVisited = async (id) => {
+  const [result] = await db.query('UPDATE appointments SET visited = TRUE WHERE id = ?', [id]);
+  return result.affectedRows;
+};
+
+const reschedule = async (id, appointmentDate) => {
+  const [result] = await db.query(
+    'UPDATE appointments SET appointment_date = ?, reminder_sent = FALSE, missed_sent = FALSE WHERE id = ?',
+    [appointmentDate, id]
+  );
+  return result.affectedRows;
+};
+
+const findByPatientId = async (patientId) => {
+  const [rows] = await db.query(`
+    SELECT id, appointment_date, reminder_sent, visited, missed_sent, created_at
+    FROM appointments
+    WHERE patient_id = ?
+    ORDER BY appointment_date DESC
+  `, [patientId]);
+  return rows;
+};
+
+const findPendingRemindersByDate = async (appointmentDate) => {
+  const [rows] = await db.query(`
+    ${BASE_APPOINTMENT_SELECT}
+    WHERE a.appointment_date = ?
+    AND a.reminder_sent = FALSE
+    AND a.visited = FALSE
+  `, [appointmentDate]);
+  return rows;
+};
+
+const findMissedNotificationsBeforeDate = async (appointmentDate) => {
+  const [rows] = await db.query(`
+    ${BASE_APPOINTMENT_SELECT}
+    WHERE a.appointment_date < ?
+    AND a.visited = FALSE
+    AND a.missed_sent = FALSE
+  `, [appointmentDate]);
+  return rows;
+};
+
+const markReminderSent = async (id) => {
+  await db.query('UPDATE appointments SET reminder_sent = TRUE WHERE id = ?', [id]);
+};
+
+const markMissedSent = async (id) => {
+  await db.query('UPDATE appointments SET missed_sent = TRUE WHERE id = ?', [id]);
+};
+
+module.exports = {
+  findAllWithPatients,
+  findById,
+  create,
+  markVisited,
+  reschedule,
+  findByPatientId,
+  findPendingRemindersByDate,
+  findMissedNotificationsBeforeDate,
+  markReminderSent,
+  markMissedSent
+};

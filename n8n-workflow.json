@@ -1,0 +1,236 @@
+{
+  "name": "Patient Reminder System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily 9 AM Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "notes": "Runs every day at 9:00 AM"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT p.name, p.phone, a.id, a.appointment_date\nFROM appointments a\nJOIN patients p ON a.patient_id = p.id\nWHERE a.appointment_date = CURDATE() + INTERVAL 1 DAY\nAND a.reminder_sent = FALSE;",
+        "options": {}
+      },
+      "id": "mysql-query",
+      "name": "Fetch Tomorrow's Appointments",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [500, 300],
+      "credentials": {
+        "mySql": {
+          "id": "1",
+          "name": "MySQL account"
+        }
+      },
+      "notes": "Fetch appointments scheduled for tomorrow that haven't been sent reminders"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-node",
+      "name": "Check If Appointments Exist",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300],
+      "notes": "Continue only if there are appointments to process"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.fast2sms.com/dev/bulkV2",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "authorization",
+              "value": "YOUR_API_KEY"
+            },
+            {
+              "name": "route",
+              "value": "q"
+            },
+            {
+              "name": "message",
+              "value": "=Hello {{ $json.name }}, your appointment is on {{ $json.appointment_date }}"
+            },
+            {
+              "name": "language",
+              "value": "english"
+            },
+            {
+              "name": "numbers",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "Send SMS via Fast2SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 180],
+      "notes": "Send reminder SMS to patient using Fast2SMS API"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "appointments",
+        "columns": "reminder_sent",
+        "additionalFields": {
+          "additionalColumns": {
+            "additionalColumnsValues": [
+              {
+                "column": "reminder_sent",
+                "value": "=1"
+              }
+            ]
+          }
+        },
+        "whereClause": "=id = {{ $json.id }}"
+      },
+      "id": "mysql-update",
+      "name": "Mark Reminder as Sent",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [1300, 180],
+      "credentials": {
+        "mySql": {
+          "id": "1",
+          "name": "MySQL account"
+        }
+      },
+      "notes": "Update appointment to prevent duplicate reminders"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "split-out",
+      "name": "Process Each Patient",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "notes": "Split the array to process each patient individually"
+    }
+  ],
+  "connections": {
+    "Daily 9 AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Tomorrow's Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Tomorrow's Appointments": {
+      "main": [
+        [
+          {
+            "node": "Check If Appointments Exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Appointments Exist": {
+      "main": [
+        [
+          {
+            "node": "Process Each Patient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Each Patient": {
+      "main": [
+        [
+          {
+            "node": "Send SMS via Fast2SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SMS via Fast2SMS": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminder as Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2026-04-21T00:00:00.000Z",
+      "updatedAt": "2026-04-21T00:00:00.000Z",
+      "id": "1",
+      "name": "Healthcare"
+    },
+    {
+      "createdAt": "2026-04-21T00:00:00.000Z",
+      "updatedAt": "2026-04-21T00:00:00.000Z",
+      "id": "2",
+      "name": "Automation"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-04-21T00:00:00.000Z",
+  "versionId": "1"
+}
