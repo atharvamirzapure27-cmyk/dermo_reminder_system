@@ -1,15 +1,27 @@
 import { motion } from 'framer-motion';
-import { Calendar, Users, PlusCircle, Home, Sun, Moon, Hospital } from 'lucide-react';
+import { Calendar, Users, PlusCircle, Home, Sun, Moon, Hospital, LogOut, UserCheck } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = ({ currentPage, setCurrentPage }) => {
   const { isDark, toggleTheme } = useTheme();
+  const { user, logoutUser, isSuperAdmin } = useAuth();
   
+  const isAdminOrSuperAdmin = isSuperAdmin || user?.role === 'admin';
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'add-patient', label: 'Add Patient', icon: Users },
     { id: 'add-appointment', label: 'Add Appointment', icon: PlusCircle },
   ];
+
+  if (isAdminOrSuperAdmin) {
+    navItems.push({ id: 'notification-history', label: 'Alert History', icon: Calendar });
+  }
+
+  if (isSuperAdmin) {
+    navItems.push({ id: 'user-management', label: 'Staff Accounts', icon: UserCheck });
+  }
 
   return (
     <motion.nav
@@ -49,6 +61,24 @@ const Navbar = ({ currentPage, setCurrentPage }) => {
 
         {/* Right Side - Navigation & Actions */}
         <div className="flex flex-wrap items-center justify-center gap-2">
+          {/* User Profile Info */}
+          {user && (
+            <div className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+              isDark ? 'bg-gray-800/80 border-gray-700 text-gray-300' : 'bg-blue-50/80 border-blue-100 text-blue-900'
+            }`}>
+              <span className={`capitalize px-1.5 py-0.5 rounded text-[10px] text-white font-bold ${
+                isSuperAdmin 
+                  ? 'bg-purple-600' 
+                  : user.role === 'admin' 
+                  ? 'bg-blue-600' 
+                  : 'bg-green-600'
+              }`}>
+                {user.role.replace('_', ' ')}
+              </span>
+              <span className="max-w-[100px] truncate">{user.username}</span>
+            </div>
+          )}
+
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -86,6 +116,23 @@ const Navbar = ({ currentPage, setCurrentPage }) => {
           >
             {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </motion.button>
+
+          {/* Logout Button */}
+          {user && (
+            <motion.button
+              onClick={logoutUser}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className={`p-2 rounded-lg transition-all duration-200 ${
+                isDark 
+                  ? 'bg-gray-800 hover:bg-red-950/40 text-red-400'
+                  : 'bg-red-50 hover:bg-red-100 text-red-600'
+              }`}
+              title="Log Out"
+            >
+              <LogOut className="w-5 h-5" />
+            </motion.button>
+          )}
         </div>
       </div>
     </motion.nav>

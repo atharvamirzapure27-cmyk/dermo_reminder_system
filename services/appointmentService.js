@@ -24,8 +24,28 @@ const markVisited = async (id) => {
   await appointmentRepository.markVisited(id);
 };
 
-const rescheduleAppointment = async ({ id, appointment_date }) => {
-  const affectedRows = await appointmentRepository.reschedule(id, appointment_date);
+const markMissed = async (id) => {
+  const appointment = await appointmentRepository.findById(id);
+
+  if (!appointment) {
+    throw new HttpError(404, 'Appointment not found');
+  }
+
+  await appointmentRepository.markMissed(id);
+};
+
+const cancelAppointment = async (id) => {
+  const appointment = await appointmentRepository.findById(id);
+
+  if (!appointment) {
+    throw new HttpError(404, 'Appointment not found');
+  }
+
+  await appointmentRepository.markCancelled(id);
+};
+
+const rescheduleAppointment = async ({ id, appointment_date, appointment_time }) => {
+  const affectedRows = await appointmentRepository.reschedule(id, appointment_date, appointment_time);
 
   if (affectedRows === 0) {
     throw new HttpError(404, 'Appointment not found');
@@ -33,7 +53,8 @@ const rescheduleAppointment = async ({ id, appointment_date }) => {
 
   return {
     id,
-    appointment_date
+    appointment_date,
+    appointment_time
   };
 };
 
@@ -57,6 +78,8 @@ module.exports = {
   getAppointments,
   createAppointment,
   markVisited,
+  markMissed,
+  cancelAppointment,
   rescheduleAppointment,
   getPatientHistory
 };

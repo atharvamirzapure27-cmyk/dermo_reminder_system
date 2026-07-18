@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # MySQL Database service
+  db:
+    image: mysql:8.0
+    container_name: dermo-mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123_secure_pass
+      MYSQL_DATABASE: dermo_reminder_system
+    ports:
+      - "3306:3306"
+    volumes:
+      - dermo-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123_secure_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node.js Backend Server & static React frontend runner
+  app:
+    build: .
+    container_name: dermo-app-server
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root123_secure_pass
+      - DB_NAME=dermo_reminder_system
+      - JWT_SECRET=change_to_a_long_random_hash_string_in_production
+      - JWT_EXPIRES_IN=12h
+      - TWILIO_ACCOUNT_SID=your_actual_account_sid
+      - TWILIO_AUTH_TOKEN=your_actual_auth_token
+      - TWILIO_PHONE_NUMBER=your_actual_phone_number
+      - TWILIO_WHATSAPP_NUMBER=your_actual_whatsapp_number
+      - MOCK_SMS=false
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  dermo-db-data:

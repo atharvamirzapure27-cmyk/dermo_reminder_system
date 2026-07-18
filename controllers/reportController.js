@@ -1,8 +1,13 @@
 const reportService = require('../services/reportService');
+const auditService = require('../services/auditService');
 
 exports.getReport = async (req, res, next) => {
   try {
-    const report = await reportService.getReport(req.params.type);
+    const type = ['daily', 'weekly', 'monthly', 'missed', 'reminders'].includes(req.params.type) ? req.params.type : 'daily';
+    const report = await reportService.getReport(type);
+    
+    await auditService.log(req, 'report_viewed', `Viewed ${type} report`);
+
     res.json({
       success: true,
       ...report
@@ -14,9 +19,13 @@ exports.getReport = async (req, res, next) => {
 
 exports.exportReport = async (req, res, next) => {
   try {
-    const file = await reportService.exportReport(req.params.type, req.params.format);
+    const type = ['daily', 'weekly', 'monthly', 'missed', 'reminders'].includes(req.params.type) ? req.params.type : 'daily';
+    const file = await reportService.exportReport(type, req.params.format);
+    
+    await auditService.log(req, 'report_exported', `Exported ${type} report in ${req.params.format} format`);
+
     res.setHeader('Content-Type', file.contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${req.params.type || 'daily'}-report.${file.extension}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${type}-report.${file.extension}"`);
     res.send(file.body);
   } catch (error) {
     next(error);

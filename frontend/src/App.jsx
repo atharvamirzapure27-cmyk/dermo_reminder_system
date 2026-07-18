@@ -1,16 +1,35 @@
 import { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ThemeProvider } from './context/ThemeContext';
+import { Loader2, Users } from 'lucide-react';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard/Dashboard';
 import AddPatient from './pages/AddPatient';
 import AddAppointment from './pages/AddAppointment';
+import UserManagement from './pages/Dashboard/UserManagement';
+import NotificationHistory from './pages/Dashboard/NotificationHistory';
+import Login from './pages/Login';
 import FloatingActionButton from './components/FloatingActionButton';
-import { Users } from 'lucide-react';
 
-function App() {
+function AppContent() {
+  const { user, loading, isSuperAdmin } = useAuth();
+  const { isDark } = useTheme();
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const isAdminOrSuperAdmin = isSuperAdmin || user?.role === 'admin';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   const renderPage = () => {
     switch (currentPage) {
@@ -20,39 +39,50 @@ function App() {
         return <AddPatient />;
       case 'add-appointment':
         return <AddAppointment />;
+      case 'notification-history':
+        return isAdminOrSuperAdmin ? <NotificationHistory isDark={isDark} /> : <Dashboard />;
+      case 'user-management':
+        return isSuperAdmin ? <UserManagement isDark={isDark} /> : <Dashboard />;
       default:
         return <Dashboard />;
     }
   };
 
   return (
+    <div className="min-h-screen transition-colors duration-300">
+      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPage}
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.98 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+          >
+            {renderPage()}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* Floating Action Button - Only show on dashboard */}
+      {currentPage === 'dashboard' && (
+        <FloatingActionButton 
+          onClick={() => setCurrentPage('add-patient')}
+          icon={Users}
+          tooltip="Add Patient"
+        />
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
     <ThemeProvider>
-      <div className="min-h-screen transition-colors duration-300">
-        <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-        
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.98 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-            >
-              {renderPage()}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-
-        {/* Floating Action Button - Only show on dashboard */}
-        {currentPage === 'dashboard' && (
-          <FloatingActionButton 
-            onClick={() => setCurrentPage('add-patient')}
-            icon={Users}
-            tooltip="Add Patient"
-          />
-        )}
-
+      <AuthProvider>
+        <AppContent />
         <Toaster
           position="top-right"
           toastOptions={{
@@ -77,7 +107,7 @@ function App() {
             },
           }}
         />
-      </div>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

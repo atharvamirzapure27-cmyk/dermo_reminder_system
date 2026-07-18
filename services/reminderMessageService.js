@@ -1,33 +1,42 @@
+const { fillTemplate } = require('../config/messageTemplates');
+
 const formatDate = (value) => {
   const appointmentDate = new Date(value);
-  return appointmentDate.getFullYear() + '-'
-    + String(appointmentDate.getMonth() + 1).padStart(2, '0') + '-'
-    + String(appointmentDate.getDate()).padStart(2, '0');
+  return appointmentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
-const getReminderMessage = (appointment) => {
-  const formattedDate = formatDate(appointment.appointment_date);
-  const messages = {
-    english: `Hello ${appointment.patient_name}, reminder for your appointment on ${formattedDate}`,
-    hindi: `Namaste ${appointment.patient_name}, ${formattedDate} ko aapki appointment ke liye reminder`,
-    marathi: `Namaskar ${appointment.patient_name}, ${formattedDate} rojichya aaplya bhetisathi smaran`
-  };
+const get3DayReminderMessage = (appointment) => {
+  return fillTemplate('reminder_3day', appointment.language, {
+    name: appointment.patient_name,
+    doctor: appointment.doctor_name,
+    date: formatDate(appointment.appointment_date),
+    time: appointment.appointment_time || '10:00 AM'
+  });
+};
 
-  return messages[appointment.language] || messages.english;
+const get1DayReminderMessage = (appointment) => {
+  return fillTemplate('reminder_1day', appointment.language, {
+    name: appointment.patient_name,
+    doctor: appointment.doctor_name,
+    date: formatDate(appointment.appointment_date),
+    time: appointment.appointment_time || '10:00 AM'
+  });
 };
 
 const getMissedMessage = (appointment) => {
-  const formattedDate = formatDate(appointment.appointment_date);
-  const messages = {
-    english: `You have missed your appointment on ${formattedDate}. Please visit the dermatology department.`,
-    hindi: `Aapki ${formattedDate} ki appointment chhoot gayi hai. Kripaya dermatology department ka daura karein.`,
-    marathi: `Aapchi ${formattedDate} rojichi bhet sutali aahe. Kripaya dermatology vibhagala bhet dya.`
-  };
-
-  return messages[appointment.language] || messages.english;
+  return fillTemplate('reminder_missed', appointment.language, {
+    name: appointment.patient_name,
+    doctor: appointment.doctor_name,
+    date: formatDate(appointment.appointment_date)
+  });
 };
 
+// Legacy compatibility
+const getReminderMessage = get1DayReminderMessage;
+
 module.exports = {
+  get3DayReminderMessage,
+  get1DayReminderMessage,
   getReminderMessage,
   getMissedMessage
 };

@@ -1,5 +1,6 @@
 const patientService = require('../services/patientService');
 const { validateCreatePatient } = require('../validators/patientValidator');
+const auditService = require('../services/auditService');
 
 exports.getPatients = async (req, res, next) => {
   try {
@@ -26,6 +27,8 @@ exports.createPatient = async (req, res, next) => {
     }
 
     const patient = await patientService.createPatient(validation.data);
+
+    await auditService.log(req, 'patient_registered', `Registered patient ID=${patient.id}`);
 
     res.status(201).json({
       success: true,

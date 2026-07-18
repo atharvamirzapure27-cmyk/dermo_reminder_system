@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Users, Loader2, ChevronDown } from 'lucide-react';
+import { Calendar, Users, Loader2, ChevronDown, Clock } from 'lucide-react';
 import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -8,12 +8,26 @@ import { createAppointment, getPatients } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import toast from 'react-hot-toast';
 
+const DOCTORS = [
+  'Dr. Priya Sharma',
+  'Dr. A. K. Singh',
+  'Dr. Vikram Patel'
+];
+
+const TIME_SLOTS = [
+  '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
+  '04:00 PM', '04:30 PM'
+];
+
 const AddAppointment = () => {
   const { isDark } = useTheme();
   const [patients, setPatients] = useState([]);
   const [formData, setFormData] = useState({
     patient_id: '',
-    appointment_date: ''
+    appointment_date: '',
+    doctor_name: 'Dr. Priya Sharma',
+    appointment_time: '10:00 AM'
   });
   const [loading, setLoading] = useState(false);
   const [fetchingPatients, setFetchingPatients] = useState(true);
@@ -41,10 +55,17 @@ const AddAppointment = () => {
     try {
       await createAppointment({
         patient_id: parseInt(formData.patient_id),
-        appointment_date: formData.appointment_date
+        appointment_date: formData.appointment_date,
+        doctor_name: formData.doctor_name,
+        appointment_time: formData.appointment_time
       });
-      toast.success('Appointment created successfully!');
-      setFormData({ patient_id: '', appointment_date: '' });
+      toast.success('Appointment scheduled successfully!');
+      setFormData({
+        patient_id: '',
+        appointment_date: '',
+        doctor_name: 'Dr. Priya Sharma',
+        appointment_time: '10:00 AM'
+      });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create appointment');
       console.error(error);
@@ -76,7 +97,7 @@ const AddAppointment = () => {
             Schedule Appointment
           </h2>
           <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-            Select patient and appointment date
+            Select patient, doctor, and slot details
           </p>
         </motion.div>
 
@@ -95,7 +116,7 @@ const AddAppointment = () => {
                 value={formData.patient_id}
                 onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
                 required
-                className={`input-modern pl-10 appearance-none cursor-pointer ${isDark ? 'text-white' : ''}`}
+                className={`input-modern pl-10 appearance-none cursor-pointer ${isDark ? 'text-white bg-gray-800' : 'bg-white'}`}
               >
                 <option value="">Choose a patient...</option>
                 {patients.map((patient) => (
@@ -110,16 +131,74 @@ const AddAppointment = () => {
             </div>
           </div>
 
-          {/* Date Input */}
-          <Input
-            label="Appointment Date"
-            type="date"
-            value={formData.appointment_date}
-            onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
-            icon={Calendar}
-            required
-            min={today}
-          />
+          {/* Doctor Select */}
+          <div className="space-y-2">
+            <label className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Consultant Doctor
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <div className="relative">
+              <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>
+                <Users className="w-5 h-5" />
+              </div>
+              <select
+                value={formData.doctor_name}
+                onChange={(e) => setFormData({ ...formData, doctor_name: e.target.value })}
+                required
+                className={`input-modern pl-10 appearance-none cursor-pointer ${isDark ? 'text-white bg-gray-800' : 'bg-white'}`}
+              >
+                {DOCTORS.map((doc) => (
+                  <option key={doc} value={doc}>
+                    {doc}
+                  </option>
+                ))}
+              </select>
+              <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>
+                <ChevronDown className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Date Input */}
+            <Input
+              label="Appointment Date"
+              type="date"
+              value={formData.appointment_date}
+              onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
+              icon={Calendar}
+              required
+              min={today}
+            />
+
+            {/* Time Slot Select */}
+            <div className="space-y-2">
+              <label className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Time Slot
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <div className="relative">
+                <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>
+                  <Clock className="w-5 h-5" />
+                </div>
+                <select
+                  value={formData.appointment_time}
+                  onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
+                  required
+                  className={`input-modern pl-10 appearance-none cursor-pointer ${isDark ? 'text-white bg-gray-800' : 'bg-white'}`}
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
+                <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>
+                  <ChevronDown className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+          </div>
 
           <Button
             type="submit"

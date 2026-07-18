@@ -72,15 +72,14 @@ async function testReminderNow() {
         String(appointmentDate.getMonth() + 1).padStart(2, '0') + '-' + 
         String(appointmentDate.getDate()).padStart(2, '0');
       
-      // Multi-language messages (SAME as production cron job)
-      const messages = {
-        english: `Hello ${patient.name}, reminder for your appointment on ${formattedDate}`,
-        hindi: `नमस्ते ${patient.name}, ${formattedDate} को आपकी अपॉइंटमेंट के लिए अनुस्मारक`,
-        marathi: `नमस्कार ${patient.name}, ${formattedDate} रोजीच्या आपल्या भेटीसाठी स्मरण`
-      };
-      
-      // Safe fallback to english
-      const message = messages[patient.language] || messages.english;
+      const { get1DayReminderMessage } = require('./services/reminderMessageService');
+      const message = get1DayReminderMessage({
+        patient_name: patient.name,
+        doctor_name: 'Dr. Priya Sharma',
+        appointment_date: patient.appointment_date,
+        appointment_time: '10:00 AM',
+        language: patient.language
+      });
       
       console.log(`📱 Patient: ${patient.name}`);
       console.log(`   Phone: ${patient.phone}`);

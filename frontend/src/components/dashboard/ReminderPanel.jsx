@@ -2,7 +2,13 @@ import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import Button from '../Button';
 
-const ReminderPanel = ({ isDark, rescheduleId, rescheduleDate, setRescheduleDate, onConfirm, onCancel }) => {
+const TIME_SLOTS = [
+  '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
+  '04:00 PM', '04:30 PM'
+];
+
+const ReminderPanel = ({ isDark, rescheduleId, rescheduleDate, setRescheduleDate, rescheduleTime, setRescheduleTime, onConfirm, onCancel }) => {
   if (!rescheduleId) return null;
 
   return (
@@ -32,11 +38,31 @@ const ReminderPanel = ({ isDark, rescheduleId, rescheduleDate, setRescheduleDate
               value={rescheduleDate}
               onChange={(e) => setRescheduleDate(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
-              className={`input-modern w-full ${isDark ? 'text-white' : ''}`}
+              className={`input-modern w-full ${isDark ? 'text-white bg-gray-800' : 'bg-white'}`}
               required
             />
           </div>
-          <div className="flex gap-3">
+
+          <div>
+            <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              New Appointment Time Slot
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <select
+              value={rescheduleTime}
+              onChange={(e) => setRescheduleTime(e.target.value)}
+              className={`input-modern w-full ${isDark ? 'text-white bg-gray-800' : 'bg-white'}`}
+              required
+            >
+              {TIME_SLOTS.map((slot) => (
+                <option key={slot} value={slot}>
+                  {slot}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-2">
             <Button onClick={onConfirm} className="flex-1">
               <RefreshCw className="w-4 h-4" />
               Confirm Reschedule

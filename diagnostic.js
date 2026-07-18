@@ -1,10 +1,6 @@
-/**
- * Complete System Diagnostic Script
- * Tests all components: DB, API, Twilio SMS
- */
-
 require('dotenv').config();
 const axios = require('axios');
+const mysql = require('mysql2/promise');
 
 const BASE_URL = 'http://localhost:3001';
 
@@ -30,7 +26,7 @@ async function test(name, fn) {
     return true;
   } catch (error) {
     log(colors.red, `❌ FAIL: ${name}`);
-    log(colors.red, `   Error: ${error.message}`);
+    log(colors.red, `   Error: ${error.response?.data?.message || error.message}`);
     return false;
   }
 }
@@ -46,22 +42,39 @@ async function runDiagnostics() {
     failed: 0
   };
 
-  // Test 1: Backend Server
-  await test('Backend Server is Running', async () => {
+  let token = null;
+  let headers = {};
+
+  // Test 1: Backend Server & Login Auth
+  await test('Backend Server & Superadmin Authentication', async () => {
     results.total++;
-    const response = await axios.get(BASE_URL);
-    if (response.data.success) {
-      log(colors.green, `   Server response: ${response.data.message}`);
+    // Get server status
+    const statusRes = await axios.get(BASE_URL);
+    if (!statusRes.data.success) {
+      throw new Error('Server status check failed');
+    }
+    log(colors.green, `   Server response: ${statusRes.data.message}`);
+
+    // Attempt login
+    const loginRes = await axios.post(`${BASE_URL}/auth/login`, {
+      username: 'superadmin',
+      password: 'SuperAdmin@123'
+    });
+
+    if (loginRes.data.success) {
+      token = loginRes.data.data.token;
+      headers = { Authorization: `Bearer ${token}` };
+      log(colors.green, '   Superadmin authenticated successfully.');
       results.passed++;
     } else {
-      throw new Error('Server returned error');
+      throw new Error('Superadmin authentication failed');
     }
   });
 
   // Test 2: Database Connection (via API)
   await test('Database Connection', async () => {
     results.total++;
-    const response = await axios.get(`${BASE_URL}/patients`);
+    const response = await axios.get(`${BASE_URL}/patients`, { headers });
     if (response.data.success) {
       log(colors.green, `   Patients in DB: ${response.data.count}`);
       results.passed++;
@@ -73,7 +86,7 @@ async function runDiagnostics() {
   // Test 3: Get Appointments
   await test('Fetch Appointments', async () => {
     results.total++;
-    const response = await axios.get(`${BASE_URL}/appointments`);
+    const response = await axios.get(`${BASE_URL}/appointments`, { headers });
     if (response.data.success) {
       log(colors.green, `   Appointments in DB: ${response.data.count}`);
       results.passed++;
@@ -89,10 +102,10 @@ async function runDiagnostics() {
     const testPhone = '9' + Date.now().toString().slice(-9); // Unique 10-digit number
     
     const response = await axios.post(`${BASE_URL}/patients`, {
-      name: 'Test Patient',
+      name: 'Diagnostics Test Patient',
       phone: testPhone,
       language: 'english'
-    });
+    }, { headers });
 
     if (response.data.success) {
       testPatientId = response.data.data.id;
@@ -117,8 +130,10 @@ async function runDiagnostics() {
     
     const response = await axios.post(`${BASE_URL}/appointments`, {
       patient_id: testPatientId,
-      appointment_date: today
-    });
+      appointment_date: today,
+      doctor_name: 'Dr. Priya Sharma',
+      appointment_time: '10:00 AM'
+    }, { headers });
 
     if (response.data.success) {
       testAppointmentId = response.data.data.id;
@@ -135,7 +150,7 @@ async function runDiagnostics() {
     results.total++;
     if (!testAppointmentId) throw new Error('No test appointment ID');
 
-    const response = await axios.put(`${BASE_URL}/appointments/${testAppointmentId}/visited`);
+    const response = await axios.put(`${BASE_URL}/appointments/${testAppointmentId}/visited`, {}, { headers });
     
     if (response.data.success) {
       log(colors.green, '   Appointment marked as visited');
@@ -247,10 +262,30 @@ async function runDiagnostics() {
 
   // Cleanup test data
   if (testAppointmentId || testPatientId) {
-    log(colors.yellow, '🧹 Note: Test data was created in your database');
-    log(colors.yellow, `   Patient ID: ${testPatientId}`);
-    log(colors.yellow, `   Appointment ID: ${testAppointmentId}`);
-    log(colors.yellow, '   You can delete these manually if needed\n');
+    log(colors.yellow, '🧹 Cleaning up diagnostics test data from database...');
+    let cleanupDb;
+    try {
+      cleanupDb = await mysql.createConnection({
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || 'root123',
+        database: process.env.DB_NAME || 'dermo_reminder_system',
+      });
+      if (testAppointmentId) {
+        await cleanupDb.query('DELETE FROM appointments WHERE id = ?', [testAppointmentId]);
+        log(colors.green, `   ✅ Deleted test appointment ID: ${testAppointmentId}`);
+      }
+      if (testPatientId) {
+        await cleanupDb.query('DELETE FROM patients WHERE id = ?', [testPatientId]);
+        log(colors.green, `   ✅ Deleted test patient ID: ${testPatientId}`);
+      }
+    } catch (cleanupErr) {
+      log(colors.red, `   ⚠️ Cleanup failed: ${cleanupErr.message}`);
+    } finally {
+      if (cleanupDb) {
+        await cleanupDb.end();
+      }
+    }
   }
 
   process.exit(failed > 0 ? 1 : 0);

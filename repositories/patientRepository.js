@@ -6,7 +6,7 @@ const findAll = async () => {
 };
 
 const findById = async (id) => {
-  const [rows] = await db.query('SELECT id, name, phone FROM patients WHERE id = ?', [id]);
+  const [rows] = await db.query('SELECT id, name, phone, language FROM patients WHERE id = ?', [id]);
   return rows[0] || null;
 };
 

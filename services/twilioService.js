@@ -33,6 +33,14 @@ try {
  */
 async function sendSMS(to, message) {
   try {
+    if (process.env.MOCK_SMS === 'true') {
+      console.log(`[Mock SMS] Sending to ${to}: ${message}`);
+      if (to.includes('9777777777')) {
+        return { success: false, error: 'Simulated failure for testing retry logic', code: 21608 };
+      }
+      return { success: true, sid: 'SMmock' + Math.floor(Math.random() * 1000000) };
+    }
+
     // Validate phone number format
     if (!to || !message) {
       throw new Error('Phone number and message are required');

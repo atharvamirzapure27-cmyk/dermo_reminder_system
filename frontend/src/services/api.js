@@ -9,9 +9,13 @@ const api = axios.create({
   },
 });
 
-// Add request interceptor for logging
+// Add request interceptor for logging & attaching JWT token
 api.interceptors.request.use(
   (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
     if (import.meta.env.DEV) {
       console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     }
@@ -23,7 +27,7 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor for logging
+// Add response interceptor for logging & clearing session on 401
 api.interceptors.response.use(
   (response) => {
     if (import.meta.env.DEV) {
@@ -32,10 +36,30 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      window.dispatchEvent(new Event('auth-expired'));
+    }
     console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
     return Promise.reject(error);
   }
 );
+
+// Authentication APIs
+export const login = async (username, password) => {
+  const response = await api.post('/auth/login', { username, password });
+  return response.data;
+};
+
+export const logout = async () => {
+  const response = await api.post('/auth/logout');
+  return response.data;
+};
+
+export const getMe = async () => {
+  const response = await api.get('/auth/me');
+  return response.data;
+};
 
 // Patient APIs
 export const getPatients = async () => {
@@ -70,14 +94,61 @@ export const markVisited = async (id) => {
   return response.data;
 };
 
-export const rescheduleAppointment = async (id, newDate) => {
+export const markMissed = async (id) => {
+  const response = await api.put(`/appointments/${id}/missed`);
+  return response.data;
+};
+
+export const cancelAppointment = async (id) => {
+  const response = await api.put(`/appointments/${id}/cancel`);
+  return response.data;
+};
+
+export const rescheduleAppointment = async (id, newDate, newTime) => {
   const response = await api.put(`/appointments/${id}/reschedule`, {
     appointment_date: newDate,
+    appointment_time: newTime,
   });
   return response.data;
 };
 
-export default api;
+// User Administration APIs (Super Admin only)
+export const getUsers = async () => {
+  const response = await api.get('/users');
+  return response.data;
+};
+
+export const createUser = async (userData) => {
+  const response = await api.post('/users', userData);
+  return response.data;
+};
+
+export const deleteUser = async (id) => {
+  const response = await api.delete(`/users/${id}`);
+  return response.data;
+};
+
+// Audit Log APIs (Admin/Super Admin only)
+export const getAuditLogs = async (limit = 100) => {
+  const response = await api.get('/users/audit-logs', { params: { limit } });
+  return response.data;
+};
+
+// Notification Tracking APIs (Admin/Super Admin only)
+export const getNotificationsHistory = async (page = 1, limit = 50) => {
+  const response = await api.get('/notifications/history', { params: { page, limit } });
+  return response.data;
+};
+
+export const retryNotification = async (id) => {
+  const response = await api.post(`/notifications/${id}/retry`);
+  return response.data;
+};
+
+export const triggerNotificationTest = async (appointmentId) => {
+  const response = await api.post('/notifications/test', { appointment_id: appointmentId });
+  return response.data;
+};
 
 // Analytics and Reporting APIs
 export const getDashboardAnalytics = async () => {
@@ -91,3 +162,5 @@ export const getReport = async (type) => {
 };
 
 export const getReportExportUrl = (type, format) => `${API_URL}/reports/${type}/export/${format}`;
+
+export default api;

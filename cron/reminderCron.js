@@ -4,11 +4,11 @@ const { sendReminders } = require('../services/reminderService');
 
 const scheduleReminderJob = (log = console.log) => {
   cron.schedule(cronSchedule, () => {
-    log(`\nRunning Reminder Job at ${new Date().toLocaleString()}...`);
+    log(`\n[Scheduler] Running Reminder Job at ${new Date().toLocaleString()}...`);
     sendReminders();
   });
 
-  log(`SMS reminders scheduled: ${cronSchedule} (daily)`);
+  log(`[Scheduler] SMS reminders scheduled to scan at interval: ${cronSchedule}`);
 };
 
 module.exports = {

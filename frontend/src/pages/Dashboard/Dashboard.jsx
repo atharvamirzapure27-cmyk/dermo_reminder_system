@@ -10,9 +10,13 @@ import HistoryModal from '../../components/dashboard/HistoryModal';
 import ReminderPanel from '../../components/dashboard/ReminderPanel';
 import AnalyticsPanel from '../../components/dashboard/AnalyticsPanel';
 import ReportPanel from '../../components/dashboard/ReportPanel';
+import AuditLogPanel from '../../components/dashboard/AuditLogPanel';
+import { useAuth } from '../../context/AuthContext';
 import {
   getAppointments,
   markVisited,
+  markMissed,
+  cancelAppointment,
   rescheduleAppointment,
   getPatientHistory,
   getDashboardAnalytics,
@@ -27,6 +31,7 @@ const PAGE_SIZE = 10;
 
 const Dashboard = () => {
   const { isDark } = useTheme();
+  const { isReceptionist, isAdmin, isSuperAdmin } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [report, setReport] = useState(null);
@@ -40,6 +45,7 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rescheduleId, setRescheduleId] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('10:00 AM');
   const [historyModal, setHistoryModal] = useState(null);
   const [patientHistory, setPatientHistory] = useState(null);
 
@@ -112,17 +118,46 @@ const Dashboard = () => {
     }
   };
 
+  const handleMarkMissed = async (id) => {
+    try {
+      await markMissed(id);
+      toast.success('Appointment marked as missed!');
+      fetchAppointments();
+      fetchReport(reportType);
+    } catch (error) {
+      toast.error('Failed to mark appointment as missed');
+      console.error(error);
+    }
+  };
+
+  const handleCancelAppointment = async (id) => {
+    try {
+      await cancelAppointment(id);
+      toast.success('Appointment cancelled successfully!');
+      fetchAppointments();
+      fetchReport(reportType);
+    } catch (error) {
+      toast.error('Failed to cancel appointment');
+      console.error(error);
+    }
+  };
+
   const handleReschedule = async (id) => {
     if (!rescheduleDate) {
       toast.error('Please select a new date');
       return;
     }
+    if (!rescheduleTime) {
+      toast.error('Please select a time slot');
+      return;
+    }
 
     try {
-      await rescheduleAppointment(id, rescheduleDate);
+      await rescheduleAppointment(id, rescheduleDate, rescheduleTime);
       toast.success('Appointment rescheduled successfully!');
       setRescheduleId(null);
       setRescheduleDate('');
+      setRescheduleTime('10:00 AM');
       fetchAppointments();
       fetchReport(reportType);
     } catch (error) {
@@ -200,17 +235,23 @@ const Dashboard = () => {
     <div className="space-y-6">
       <DashboardStats isDark={isDark} stats={stats} />
 
-      <AnalyticsPanel analytics={analytics} isDark={isDark} />
+      {!isReceptionist && (
+        <>
+          <AnalyticsPanel analytics={analytics} isDark={isDark} />
+          <AppointmentChart appointments={appointments} />
+          <ReportPanel
+            isDark={isDark}
+            reportType={reportType}
+            setReportType={setReportType}
+            report={report}
+            onExport={handleExportReport}
+          />
+        </>
+      )}
 
-      <AppointmentChart appointments={appointments} />
-
-      <ReportPanel
-        isDark={isDark}
-        reportType={reportType}
-        setReportType={setReportType}
-        report={report}
-        onExport={handleExportReport}
-      />
+      {(isAdmin || isSuperAdmin) && (
+        <AuditLogPanel isDark={isDark} />
+      )}
 
       <SearchFilter
         searchTerm={searchTerm}
@@ -231,10 +272,13 @@ const Dashboard = () => {
           searchTerm={searchTerm}
           statusFilter={statusFilter}
           onMarkVisited={handleMarkVisited}
+          onMarkMissed={handleMarkMissed}
+          onCancelAppointment={handleCancelAppointment}
           onViewHistory={handleViewHistory}
           onRescheduleClick={(id) => {
             setRescheduleId(id);
             setRescheduleDate('');
+            setRescheduleTime('10:00 AM');
           }}
           sortConfig={sortConfig}
           onSort={handleSort}
@@ -251,10 +295,13 @@ const Dashboard = () => {
           rescheduleId={rescheduleId}
           rescheduleDate={rescheduleDate}
           setRescheduleDate={setRescheduleDate}
+          rescheduleTime={rescheduleTime}
+          setRescheduleTime={setRescheduleTime}
           onConfirm={() => handleReschedule(rescheduleId)}
           onCancel={() => {
             setRescheduleId(null);
             setRescheduleDate('');
+            setRescheduleTime('10:00 AM');
           }}
         />
       </AnimatePresence>

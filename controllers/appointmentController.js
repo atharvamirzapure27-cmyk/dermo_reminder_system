@@ -1,4 +1,6 @@
 const appointmentService = require('../services/appointmentService');
+const auditService = require('../services/auditService');
+const { sendReminders } = require('../services/reminderService');
 const {
   validateCreateAppointment,
   validateAppointmentId,
@@ -37,7 +39,13 @@ exports.createAppointment = async (req, res, next) => {
     }
 
     const appointment = await appointmentService.createAppointment(validation.data);
-    console.log(`Appointment created: ID=${appointment.id}, patient_id=${appointment.patient_id}, date=${appointment.appointment_date}`);
+    console.log(`Appointment created: ID=${appointment.id}, patient_id=${appointment.patient_id}, date=${appointment.appointment_date}, time=${appointment.appointment_time}`);
+
+    await auditService.log(
+      req, 
+      'appointment_scheduled', 
+      `Scheduled appointment ID=${appointment.id} for patient ID=${appointment.patient_id} with ${appointment.doctor_name} at ${appointment.appointment_time} on ${appointment.appointment_date}`
+    );
 
     res.status(201).json({
       success: true,
@@ -61,9 +69,57 @@ exports.markVisited = async (req, res, next) => {
     await appointmentService.markVisited(validation.data);
     console.log(`Appointment ${validation.data} marked as visited`);
 
+    await auditService.log(req, 'appointment_visited', `Marked appointment ID=${validation.data} as visited`);
+
     res.json({
       success: true,
       message: 'Appointment marked as visited successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.markMissed = async (req, res, next) => {
+  try {
+    const validation = validateAppointmentId(req.params.id);
+
+    if (!validation.valid) {
+      return sendValidationError(res, validation);
+    }
+
+    console.log(`Marking appointment ${validation.data} as missed...`);
+    await appointmentService.markMissed(validation.data);
+    console.log(`Appointment ${validation.data} marked as missed`);
+
+    await auditService.log(req, 'appointment_missed', `Marked appointment ID=${validation.data} as missed`);
+
+    res.json({
+      success: true,
+      message: 'Appointment marked as missed successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.cancelAppointment = async (req, res, next) => {
+  try {
+    const validation = validateAppointmentId(req.params.id);
+
+    if (!validation.valid) {
+      return sendValidationError(res, validation);
+    }
+
+    console.log(`Cancelling appointment ${validation.data}...`);
+    await appointmentService.cancelAppointment(validation.data);
+    console.log(`Appointment ${validation.data} cancelled`);
+
+    await auditService.log(req, 'appointment_cancelled', `Cancelled appointment ID=${validation.data}`);
+
+    res.json({
+      success: true,
+      message: 'Appointment cancelled successfully'
     });
   } catch (error) {
     next(error);
@@ -78,9 +134,15 @@ exports.rescheduleAppointment = async (req, res, next) => {
       return sendValidationError(res, validation);
     }
 
-    console.log(`Rescheduling appointment ${validation.data.id} to ${validation.data.appointment_date}...`);
+    console.log(`Rescheduling appointment ${validation.data.id} to ${validation.data.appointment_date} at ${validation.data.appointment_time}...`);
     const appointment = await appointmentService.rescheduleAppointment(validation.data);
-    console.log(`Appointment ${validation.data.id} rescheduled to ${validation.data.appointment_date}`);
+    console.log(`Appointment ${validation.data.id} rescheduled to ${validation.data.appointment_date} at ${validation.data.appointment_time}`);
+
+    await auditService.log(
+      req, 
+      'appointment_rescheduled', 
+      `Rescheduled appointment ID=${validation.data.id} to ${validation.data.appointment_date} at ${validation.data.appointment_time}`
+    );
 
     res.json({
       success: true,
@@ -107,6 +169,27 @@ exports.getPatientHistory = async (req, res, next) => {
     res.json({
       success: true,
       data: history
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.triggerReminders = async (req, res, next) => {
+  try {
+    console.log(`[Admin] Manual reminder sweep triggered by user ${req.user?.username || 'system'}`);
+    const result = await sendReminders(true);
+    
+    await auditService.log(
+      req, 
+      'reminder_sweep_triggered', 
+      `Manually triggered reminder scan. Status: ${result.status}`
+    );
+
+    res.json({
+      success: true,
+      message: 'Reminder sweep executed successfully',
+      data: result
     });
   } catch (error) {
     next(error);

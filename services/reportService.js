@@ -23,7 +23,7 @@ const exportReport = async (type = 'daily', format = 'csv') => {
     return {
       contentType: 'application/pdf',
       extension: 'pdf',
-      body: exportService.toPdf(report.data)
+      body: exportService.toPdf(report.data, `${type} alert report`)
     };
   }
 
@@ -31,7 +31,7 @@ const exportReport = async (type = 'daily', format = 'csv') => {
     return {
       contentType: 'application/vnd.ms-excel',
       extension: 'xls',
-      body: exportService.toExcel(report.data)
+      body: exportService.toExcel(report.data, `${type} alert report`)
     };
   }
 

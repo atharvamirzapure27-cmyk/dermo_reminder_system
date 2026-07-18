@@ -16,16 +16,31 @@ app.use(express.json());
 
 logStartup('Middleware loaded: CORS and express.json()');
 
+const { authenticateToken, requireRole } = require('./middleware/authMiddleware');
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'Dermo Reminder System API is running',
     endpoints: {
+      auth: {
+        login: 'POST /auth/login',
+        logout: 'POST /auth/logout',
+        me: 'GET /auth/me'
+      },
+      users: {
+        get: 'GET /users',
+        create: 'POST /users',
+        delete: 'DELETE /users/:id',
+        auditLogs: 'GET /users/audit-logs'
+      },
       patients: {
         get: 'GET /patients',
         create: 'POST /patients'
@@ -47,10 +62,13 @@ app.get('/', (req, res) => {
   });
 });
 
-app.use('/patients', patientRoutes);
-app.use('/appointments', appointmentRoutes);
-app.use('/reports', reportRoutes);
-app.use('/analytics', analyticsRoutes);
+app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
+app.use('/patients', authenticateToken, patientRoutes);
+app.use('/appointments', authenticateToken, appointmentRoutes);
+app.use('/reports', authenticateToken, requireRole(['super_admin', 'admin']), reportRoutes);
+app.use('/analytics', authenticateToken, requireRole(['super_admin', 'admin']), analyticsRoutes);
+app.use('/notifications', notificationRoutes);
 logStartup('Routes mounted successfully');
 
 scheduleReminderJob(logStartup);
