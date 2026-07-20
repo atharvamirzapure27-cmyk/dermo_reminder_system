@@ -1,5 +1,10 @@
 # Environment Variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
 
 # Dependencies
 node_modules/
@@ -8,10 +13,16 @@ frontend/node_modules/
 # Build files
 dist/
 frontend/dist/
+build/
+frontend/build/
 
 # Logs
 *.log
 npm-debug.log*
+
+# Temporary files
+tmp/
+.cache/
 
 # OS files
 .DS_Store
