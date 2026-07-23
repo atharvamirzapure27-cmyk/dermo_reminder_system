@@ -7,6 +7,9 @@ const { authenticateToken, requireRole } = require('../middleware/authMiddleware
 router.use(authenticateToken);
 router.use(requireRole(['super_admin', 'admin']));
 
+// GET /notifications/scheduler-status - Get scheduler status & statistics
+router.get('/scheduler-status', notificationController.getSchedulerStatus);
+
 // GET /notifications - Get list of recent notifications
 router.get('/history', notificationController.getNotificationsHistory);
 

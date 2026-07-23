@@ -31,7 +31,7 @@ const buildFilters = (filters = {}) => {
   }
 
   if (filters.appointment_date) {
-    where.push('a.appointment_date = ?');
+    where.push('DATE(a.appointment_date) = ?');
     params.push(filters.appointment_date);
   }
 
@@ -46,13 +46,13 @@ const buildFilters = (filters = {}) => {
       where.push('a.status = ?');
       params.push(status);
     } else if (status === 'today') {
-      where.push('a.appointment_date = CURDATE() AND a.status != "cancelled"');
+      where.push('DATE(a.appointment_date) = CURDATE() AND a.status != "cancelled"');
     } else if (status === 'upcoming') {
-      where.push('a.appointment_date > CURDATE() AND a.status != "cancelled"');
+      where.push('DATE(a.appointment_date) > CURDATE() AND a.status != "cancelled"');
     } else if (status === 'visited_legacy') {
       where.push('a.visited = TRUE');
     } else if (status === 'missed_legacy') {
-      where.push('a.visited = FALSE AND a.appointment_date < CURDATE() AND a.status != "cancelled"');
+      where.push('a.visited = FALSE AND DATE(a.appointment_date) < CURDATE() AND a.status != "cancelled"');
     }
   }
 
@@ -188,7 +188,7 @@ const findByPatientId = async (patientId) => {
 const findPendingRemindersByDate = async (appointmentDate) => {
   const [rows] = await db.query(`
     ${BASE_APPOINTMENT_SELECT}
-    WHERE a.appointment_date = ?
+    WHERE DATE(a.appointment_date) = ?
     AND a.reminder_sent = FALSE
     AND a.visited = FALSE
     AND a.status != 'cancelled'
@@ -199,7 +199,7 @@ const findPendingRemindersByDate = async (appointmentDate) => {
 const findMissedNotificationsBeforeDate = async (appointmentDate) => {
   const [rows] = await db.query(`
     ${BASE_APPOINTMENT_SELECT}
-    WHERE a.appointment_date < ?
+    WHERE DATE(a.appointment_date) < ?
     AND a.visited = FALSE
     AND a.missed_sent = FALSE
     AND a.status != 'cancelled'
@@ -219,10 +219,18 @@ const markReminder3DaySent = async (id) => {
   await db.query('UPDATE appointments SET reminder_3day_sent = TRUE WHERE id = ?', [id]);
 };
 
+const markReminderSameDaySent = async (id) => {
+  await db.query('UPDATE appointments SET reminder_same_day_sent = TRUE WHERE id = ?', [id]);
+};
+
+const markReminder7DayMissedSent = async (id) => {
+  await db.query('UPDATE appointments SET reminder_7day_missed_sent = TRUE WHERE id = ?', [id]);
+};
+
 const findPending3DayReminders = async (targetDate) => {
   const [rows] = await db.query(`
     ${BASE_APPOINTMENT_SELECT}
-    WHERE a.appointment_date = ?
+    WHERE DATE(a.appointment_date) = ?
     AND a.reminder_3day_sent = FALSE
     AND a.status IN ('scheduled', 'rescheduled')
   `, [targetDate]);
@@ -232,8 +240,29 @@ const findPending3DayReminders = async (targetDate) => {
 const findPending1DayReminders = async (targetDate) => {
   const [rows] = await db.query(`
     ${BASE_APPOINTMENT_SELECT}
-    WHERE a.appointment_date = ?
+    WHERE DATE(a.appointment_date) = ?
     AND a.reminder_1day_sent = FALSE
+    AND a.status IN ('scheduled', 'rescheduled')
+  `, [targetDate]);
+  return rows;
+};
+
+const findPendingTodayReminders = async (targetDate) => {
+  const [rows] = await db.query(`
+    ${BASE_APPOINTMENT_SELECT}
+    WHERE DATE(a.appointment_date) = ?
+    AND a.reminder_1day_sent = FALSE
+    AND a.visited = FALSE
+    AND a.status IN ('scheduled', 'rescheduled')
+  `, [targetDate]);
+  return rows;
+};
+
+const findPendingSameDayReminders = async (targetDate) => {
+  const [rows] = await db.query(`
+    ${BASE_APPOINTMENT_SELECT}
+    WHERE DATE(a.appointment_date) = ?
+    AND a.reminder_same_day_sent = FALSE
     AND a.status IN ('scheduled', 'rescheduled')
   `, [targetDate]);
   return rows;
@@ -248,6 +277,16 @@ const findPendingMissedReminders = async () => {
   return rows;
 };
 
+const findPending7DayMissedReminders = async (targetDate) => {
+  const [rows] = await db.query(`
+    ${BASE_APPOINTMENT_SELECT}
+    WHERE DATE(a.appointment_date) = ?
+    AND a.status = 'missed'
+    AND a.reminder_7day_missed_sent = FALSE
+  `, [targetDate]);
+  return rows;
+};
+
 const autoTransitionMissedAppointments = async () => {
   const [result] = await db.query(`
     UPDATE appointments 
@@ -256,6 +295,17 @@ const autoTransitionMissedAppointments = async () => {
     AND status IN ('scheduled', 'rescheduled')
   `);
   return result.affectedRows;
+};
+
+const getPendingRemindersCount = async () => {
+  const [rows] = await db.query(`
+    SELECT COUNT(*) AS total
+    FROM appointments
+    WHERE status IN ('scheduled', 'rescheduled')
+      AND appointment_date >= CURDATE()
+      AND (reminder_3day_sent = FALSE OR reminder_1day_sent = FALSE OR reminder_same_day_sent = FALSE)
+  `);
+  return rows[0]?.total || 0;
 };
 
 module.exports = {
@@ -272,8 +322,14 @@ module.exports = {
   markReminderSent,
   markMissedSent,
   markReminder3DaySent,
+  markReminderSameDaySent,
+  markReminder7DayMissedSent,
   findPending3DayReminders,
   findPending1DayReminders,
+  findPendingTodayReminders,
+  findPendingSameDayReminders,
   findPendingMissedReminders,
-  autoTransitionMissedAppointments
+  findPending7DayMissedReminders,
+  autoTransitionMissedAppointments,
+  getPendingRemindersCount
 };

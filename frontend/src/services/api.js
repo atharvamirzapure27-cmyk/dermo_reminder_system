@@ -134,9 +134,21 @@ export const getAuditLogs = async (limit = 100) => {
   return response.data;
 };
 
+// Notification Settings APIs (Admin/Super Admin only)
+export const getNotificationSettings = async () => {
+  const response = await api.get('/settings/notifications');
+  return response.data;
+};
+
+export const updateNotificationSettings = async (settingsData) => {
+  const response = await api.put('/settings/notifications', settingsData);
+  return response.data;
+};
+
 // Notification Tracking APIs (Admin/Super Admin only)
-export const getNotificationsHistory = async (page = 1, limit = 50) => {
-  const response = await api.get('/notifications/history', { params: { page, limit } });
+export const getNotificationsHistory = async (params = {}) => {
+  const queryParams = typeof params === 'number' ? { page: params, limit: 50 } : params;
+  const response = await api.get('/notifications/history', { params: queryParams });
   return response.data;
 };
 
@@ -147,6 +159,11 @@ export const retryNotification = async (id) => {
 
 export const triggerNotificationTest = async (appointmentId) => {
   const response = await api.post('/notifications/test', { appointment_id: appointmentId });
+  return response.data;
+};
+
+export const getSchedulerStatus = async () => {
+  const response = await api.get('/notifications/scheduler-status');
   return response.data;
 };
 

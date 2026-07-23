@@ -10,6 +10,7 @@ import AddPatient from './pages/AddPatient';
 import AddAppointment from './pages/AddAppointment';
 import UserManagement from './pages/Dashboard/UserManagement';
 import NotificationHistory from './pages/Dashboard/NotificationHistory';
+import NotificationSettings from './pages/Dashboard/NotificationSettings';
 import Login from './pages/Login';
 import FloatingActionButton from './components/FloatingActionButton';
 
@@ -41,6 +42,8 @@ function AppContent() {
         return <AddAppointment />;
       case 'notification-history':
         return isAdminOrSuperAdmin ? <NotificationHistory isDark={isDark} /> : <Dashboard />;
+      case 'notification-settings':
+        return isAdminOrSuperAdmin ? <NotificationSettings isDark={isDark} /> : <Dashboard />;
       case 'user-management':
         return isSuperAdmin ? <UserManagement isDark={isDark} /> : <Dashboard />;
       default:

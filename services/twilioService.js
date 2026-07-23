@@ -1,3 +1,4 @@
+require('dotenv').config();
 const twilio = require('twilio');
 
 const isProduction = process.env.NODE_ENV === 'production';

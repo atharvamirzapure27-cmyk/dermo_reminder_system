@@ -11,6 +11,7 @@ import ReminderPanel from '../../components/dashboard/ReminderPanel';
 import AnalyticsPanel from '../../components/dashboard/AnalyticsPanel';
 import ReportPanel from '../../components/dashboard/ReportPanel';
 import AuditLogPanel from '../../components/dashboard/AuditLogPanel';
+import SchedulerMonitoringCard from '../../components/dashboard/SchedulerMonitoringCard';
 import { useAuth } from '../../context/AuthContext';
 import {
   getAppointments,
@@ -237,6 +238,7 @@ const Dashboard = () => {
 
       {!isReceptionist && (
         <>
+          <SchedulerMonitoringCard isDark={isDark} />
           <AnalyticsPanel analytics={analytics} isDark={isDark} />
           <AppointmentChart appointments={appointments} />
           <ReportPanel

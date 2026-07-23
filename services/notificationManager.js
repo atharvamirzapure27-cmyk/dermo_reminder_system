@@ -3,6 +3,7 @@ const whatsappService = require('./whatsappService');
 const voiceService = require('./voiceService');
 const notificationRepository = require('../repositories/notificationRepository');
 const appointmentRepository = require('../repositories/appointmentRepository');
+const settingsRepository = require('../repositories/settingsRepository');
 const logger = require('../utils/logger');
 
 /**
@@ -15,9 +16,27 @@ const logger = require('../utils/logger');
 const sendAlertsAcrossChannels = async ({ appointment, messageType, messageText }) => {
   const results = {};
   const channels = ['sms', 'whatsapp_text', 'whatsapp_voice'];
+  const settings = await settingsRepository.getSettings();
 
   for (const channel of channels) {
     try {
+      // 0. Channel enabled check from Admin settings
+      if (channel === 'sms' && !settings.sms_enabled) {
+        results[channel] = { status: 'disabled' };
+        logger.info(`[Channel Disabled] SMS channel is disabled. Skipping appointment ${appointment.id}`);
+        continue;
+      }
+      if (channel === 'whatsapp_text' && !settings.whatsapp_enabled) {
+        results[channel] = { status: 'disabled' };
+        logger.info(`[Channel Disabled] WhatsApp channel is disabled. Skipping appointment ${appointment.id}`);
+        continue;
+      }
+      if (channel === 'whatsapp_voice' && !settings.voice_enabled) {
+        results[channel] = { status: 'disabled' };
+        logger.info(`[Channel Disabled] Voice Call channel is disabled. Skipping appointment ${appointment.id}`);
+        continue;
+      }
+
       // 1. Duplicate prevention check
       const alreadySent = await notificationRepository.checkAlreadySent(appointment.id, channel, messageType);
       if (alreadySent) {
@@ -57,8 +76,12 @@ const sendAlertsAcrossChannels = async ({ appointment, messageType, messageText 
           await appointmentRepository.markReminder3DaySent(appointment.id);
         } else if (messageType === '1day_reminder') {
           await appointmentRepository.markReminderSent(appointment.id);
+        } else if (messageType === 'same_day_reminder') {
+          await appointmentRepository.markReminderSameDaySent(appointment.id);
         } else if (messageType === 'missed_reminder') {
           await appointmentRepository.markMissedSent(appointment.id);
+        } else if (messageType === '7day_missed_reminder') {
+          await appointmentRepository.markReminder7DayMissedSent(appointment.id);
         }
       }
 
@@ -103,6 +126,17 @@ const retryFailedNotification = async (logId) => {
 
   console.log(`[NotificationManager] Retrying failed notification log ID: ${logId}...`);
 
+  const settings = await settingsRepository.getSettings();
+  if (logEntry.channel === 'sms' && !settings.sms_enabled) {
+    return { success: false, error: 'SMS channel is currently disabled in Admin settings.' };
+  }
+  if (logEntry.channel === 'whatsapp_text' && !settings.whatsapp_enabled) {
+    return { success: false, error: 'WhatsApp channel is currently disabled in Admin settings.' };
+  }
+  if (logEntry.channel === 'whatsapp_voice' && !settings.voice_enabled) {
+    return { success: false, error: 'Voice Call channel is currently disabled in Admin settings.' };
+  }
+
   let result;
   if (logEntry.channel === 'sms') {
     result = await twilioService.sendSMS(logEntry.recipient_phone, logEntry.message_text);
@@ -124,8 +158,12 @@ const retryFailedNotification = async (logId) => {
         await appointmentRepository.markReminder3DaySent(logEntry.appointment_id);
       } else if (logEntry.message_type === '1day_reminder') {
         await appointmentRepository.markReminderSent(logEntry.appointment_id);
+      } else if (logEntry.message_type === 'same_day_reminder') {
+        await appointmentRepository.markReminderSameDaySent(logEntry.appointment_id);
       } else if (logEntry.message_type === 'missed_reminder') {
         await appointmentRepository.markMissedSent(logEntry.appointment_id);
+      } else if (logEntry.message_type === '7day_missed_reminder') {
+        await appointmentRepository.markReminder7DayMissedSent(logEntry.appointment_id);
       }
     }
 

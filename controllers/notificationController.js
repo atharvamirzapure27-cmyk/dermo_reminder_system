@@ -1,30 +1,22 @@
 const notificationRepository = require('../repositories/notificationRepository');
 const appointmentRepository = require('../repositories/appointmentRepository');
+const settingsRepository = require('../repositories/settingsRepository');
 const notificationManager = require('../services/notificationManager');
 const auditService = require('../services/auditService');
 const { get1DayReminderMessage } = require('../services/reminderMessageService');
+const { getSchedulerState } = require('../cron/reminderCron');
 
 /**
  * Retrieve paginated notification logs history
  */
 exports.getNotificationsHistory = async (req, res, next) => {
   try {
-    const limit = Number(req.query.limit || 50);
-    const page = Number(req.query.page || 1);
-    const offset = (page - 1) * limit;
-
-    const logs = await notificationRepository.findLogsHistory(limit, offset);
-    const total = await notificationRepository.countAllLogs();
+    const result = await notificationRepository.findLogsHistory(req.query);
 
     res.json({
       success: true,
-      data: logs,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-      }
+      data: result.rows,
+      pagination: result.pagination
     });
   } catch (error) {
     next(error);
@@ -101,6 +93,49 @@ exports.triggerNotificationTest = async (req, res, next) => {
       success: true,
       message: 'Test notifications dispatched successfully',
       data: results
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Retrieve current scheduler monitoring status & statistics
+ */
+exports.getSchedulerStatus = async (req, res, next) => {
+  try {
+    const memoryState = getSchedulerState();
+    const todayStats = await notificationRepository.getTodayNotificationStats();
+    const pendingReminders = await appointmentRepository.getPendingRemindersCount();
+    const channelSettings = await settingsRepository.getSettings();
+
+    let nextRun = null;
+    if (memoryState.lastRun) {
+      const last = new Date(memoryState.lastRun).getTime();
+      nextRun = new Date(last + 30 * 60 * 1000).toISOString();
+    } else {
+      nextRun = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    }
+
+    res.json({
+      success: true,
+      data: {
+        status: memoryState.status || 'running',
+        cronSchedule: memoryState.cronSchedule || '*/30 * * * *',
+        lastRun: memoryState.lastRun,
+        nextRun,
+        lastDurationMs: memoryState.lastDurationMs || 0,
+        lastError: memoryState.lastError,
+        processedToday: todayStats.processedToday,
+        sentToday: todayStats.sentToday,
+        failedToday: todayStats.failedToday,
+        pendingReminders,
+        channels: {
+          sms: Boolean(channelSettings.sms_enabled),
+          whatsapp: Boolean(channelSettings.whatsapp_enabled),
+          voice: Boolean(channelSettings.voice_enabled)
+        }
+      }
     });
   } catch (error) {
     next(error);

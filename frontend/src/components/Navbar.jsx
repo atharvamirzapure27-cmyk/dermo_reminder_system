@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, Users, PlusCircle, Home, Sun, Moon, Hospital, LogOut, UserCheck } from 'lucide-react';
+import { Calendar, Users, PlusCircle, Home, Sun, Moon, Hospital, LogOut, UserCheck, Sliders } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,6 +17,7 @@ const Navbar = ({ currentPage, setCurrentPage }) => {
 
   if (isAdminOrSuperAdmin) {
     navItems.push({ id: 'notification-history', label: 'Alert History', icon: Calendar });
+    navItems.push({ id: 'notification-settings', label: 'Channel Settings', icon: Sliders });
   }
 
   if (isSuperAdmin) {

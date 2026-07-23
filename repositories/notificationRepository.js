@@ -55,10 +55,77 @@ const updateAppointmentStatusFlags = async (appointmentId, channel, success, err
   }
 };
 
+const SORT_COLUMNS = {
+  id: 'n.id',
+  patient_name: 'p.name',
+  recipient_phone: 'n.recipient_phone',
+  channel: 'n.channel',
+  message_type: 'n.message_type',
+  status: 'n.status',
+  created_at: 'n.created_at',
+  appointment_date: 'a.appointment_date'
+};
+
+const buildLogFilters = (filters = {}) => {
+  const where = [];
+  const params = [];
+
+  if (filters.search) {
+    where.push('(p.name LIKE ? OR n.recipient_phone LIKE ? OR n.message_text LIKE ?)');
+    const s = `%${filters.search}%`;
+    params.push(s, s, s);
+  }
+
+  if (filters.patient) {
+    where.push('(p.name LIKE ? OR n.recipient_phone LIKE ?)');
+    const pSearch = `%${filters.patient}%`;
+    params.push(pSearch, pSearch);
+  }
+
+  if (filters.date) {
+    where.push('(DATE(n.created_at) = ? OR DATE(a.appointment_date) = ?)');
+    params.push(filters.date, filters.date);
+  }
+
+  if (filters.message_type) {
+    where.push('n.message_type = ?');
+    params.push(filters.message_type);
+  }
+
+  if (filters.channel) {
+    where.push('n.channel = ?');
+    params.push(filters.channel);
+  }
+
+  if (filters.status) {
+    where.push('n.status = ?');
+    params.push(filters.status);
+  }
+
+  return {
+    whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    params
+  };
+};
+
 /**
- * Retrieve paginated notification logs history
+ * Retrieve paginated and filtered notification logs history
  */
-const findLogsHistory = async (limit = 50, offset = 0) => {
+const findLogsHistory = async (options = {}) => {
+  // Support legacy signature (limit, offset) if passed as numbers
+  let opts = options;
+  if (typeof options === 'number') {
+    opts = { limit: options, page: Math.floor((arguments[1] || 0) / options) + 1 };
+  }
+
+  const { whereSql, params } = buildLogFilters(opts);
+  const sortColumn = SORT_COLUMNS[opts.sortBy] || SORT_COLUMNS.created_at;
+  const sortOrder = String(opts.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  
+  const page = Number(opts.page || 1);
+  const limit = Number(opts.limit || 50);
+  const offset = (page - 1) * limit;
+
   const [rows] = await db.query(
     `SELECT n.id, n.appointment_id, n.channel, n.recipient_phone, n.message_type, 
             n.message_text, n.status, n.error_message, n.created_at,
@@ -66,18 +133,48 @@ const findLogsHistory = async (limit = 50, offset = 0) => {
      FROM notification_logs n
      JOIN appointments a ON n.appointment_id = a.id
      JOIN patients p ON a.patient_id = p.id
-     ORDER BY n.created_at DESC
+     ${whereSql}
+     ORDER BY ${sortColumn} ${sortOrder}
      LIMIT ? OFFSET ?`,
-    [Number(limit), Number(offset)]
+    [...params, limit, offset]
   );
-  return rows;
+
+  const [countRows] = await db.query(
+    `SELECT COUNT(*) AS total
+     FROM notification_logs n
+     JOIN appointments a ON n.appointment_id = a.id
+     JOIN patients p ON a.patient_id = p.id
+     ${whereSql}`,
+    params
+  );
+
+  const total = countRows[0]?.total || 0;
+
+  return {
+    rows,
+    total,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1
+    }
+  };
 };
 
 /**
  * Get total count of notification logs
  */
-const countAllLogs = async () => {
-  const [rows] = await db.query('SELECT COUNT(*) as total FROM notification_logs');
+const countAllLogs = async (filters = {}) => {
+  const { whereSql, params } = buildLogFilters(filters);
+  const [rows] = await db.query(
+    `SELECT COUNT(*) as total 
+     FROM notification_logs n
+     JOIN appointments a ON n.appointment_id = a.id
+     JOIN patients p ON a.patient_id = p.id
+     ${whereSql}`,
+    params
+  );
   return rows[0]?.total || 0;
 };
 
@@ -108,6 +205,26 @@ const updateLogStatus = async (logId, status, errorMessage = null) => {
   );
 };
 
+/**
+ * Aggregate today's notification statistics for scheduler monitoring
+ */
+const getTodayNotificationStats = async () => {
+  const [rows] = await db.query(`
+    SELECT 
+      COUNT(*) AS processedToday,
+      SUM(CASE WHEN status IN ('sent', 'retried') THEN 1 ELSE 0 END) AS sentToday,
+      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failedToday
+    FROM notification_logs
+    WHERE DATE(created_at) = CURDATE()
+  `);
+
+  return {
+    processedToday: Number(rows[0]?.processedToday || 0),
+    sentToday: Number(rows[0]?.sentToday || 0),
+    failedToday: Number(rows[0]?.failedToday || 0)
+  };
+};
+
 module.exports = {
   checkAlreadySent,
   logNotification,
@@ -115,5 +232,6 @@ module.exports = {
   findLogsHistory,
   countAllLogs,
   findLogById,
-  updateLogStatus
+  updateLogStatus,
+  getTodayNotificationStats
 };
