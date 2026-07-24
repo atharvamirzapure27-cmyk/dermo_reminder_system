@@ -4,11 +4,13 @@ const auditService = require('../services/auditService');
 
 exports.getPatients = async (req, res, next) => {
   try {
-    const rows = await patientService.getPatients();
+    const result = await patientService.getPatients(req.query);
     res.json({
       success: true,
-      count: rows.length,
-      data: rows
+      count: result.rows.length,
+      total: result.total,
+      pagination: result.pagination || undefined,
+      data: result.rows
     });
   } catch (error) {
     next(error);

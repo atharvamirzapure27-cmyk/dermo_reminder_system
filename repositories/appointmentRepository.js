@@ -166,7 +166,11 @@ const reschedule = async (id, appointmentDate, appointmentTime) => {
     `UPDATE appointments 
      SET appointment_date = ?, appointment_time = ?, status = 'rescheduled', visited = FALSE, 
          reminder_sent = FALSE, missed_sent = FALSE,
-         reminder_3day_sent = FALSE, reminder_1day_sent = FALSE, reminder_missed_sent = FALSE 
+         reminder_3day_sent = FALSE, reminder_1day_sent = FALSE, reminder_missed_sent = FALSE,
+         reminder_same_day_sent = FALSE, reminder_7day_missed_sent = FALSE,
+         whatsapp_status = 'pending', voice_status = 'pending',
+         whatsapp_sent_at = NULL, voice_sent_at = NULL,
+         whatsapp_error = NULL, voice_error = NULL
      WHERE id = ?`,
     [appointmentDate, appointmentTime, id]
   );

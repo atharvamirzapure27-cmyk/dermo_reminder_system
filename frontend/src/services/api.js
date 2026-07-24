@@ -62,8 +62,8 @@ export const getMe = async () => {
 };
 
 // Patient APIs
-export const getPatients = async () => {
-  const response = await api.get('/patients');
+export const getPatients = async (params = {}) => {
+  const response = await api.get('/patients', { params });
   return response.data;
 };
 
@@ -79,8 +79,8 @@ export const getPatientHistory = async (patientId) => {
 };
 
 // Appointment APIs
-export const getAppointments = async () => {
-  const response = await api.get('/appointments');
+export const getAppointments = async (params = {}) => {
+  const response = await api.get('/appointments', { params });
   return response.data;
 };
 

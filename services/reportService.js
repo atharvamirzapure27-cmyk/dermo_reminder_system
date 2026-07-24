@@ -1,7 +1,7 @@
 const reportRepository = require('../repositories/reportRepository');
 const exportService = require('./exportService');
 
-const REPORT_TYPES = ['daily', 'weekly', 'monthly', 'missed', 'reminders'];
+const REPORT_TYPES = ['daily', 'weekly', 'monthly', 'quarterly', 'missed', 'reminders'];
 const FORMATS = ['json', 'csv', 'excel', 'pdf'];
 
 const getReport = async (type = 'daily') => {
@@ -15,7 +15,7 @@ const getReport = async (type = 'daily') => {
   };
 };
 
-const exportReport = async (type = 'daily', format = 'csv') => {
+const exportReport = async (type = 'daily', format = 'csv', user = null) => {
   const normalizedFormat = FORMATS.includes(format) ? format : 'csv';
   const report = await getReport(type);
 
@@ -23,15 +23,15 @@ const exportReport = async (type = 'daily', format = 'csv') => {
     return {
       contentType: 'application/pdf',
       extension: 'pdf',
-      body: exportService.toPdf(report.data, `${type} alert report`)
+      body: await exportService.toPdf(report.data, `${type} alert report`, user)
     };
   }
 
   if (normalizedFormat === 'excel') {
     return {
-      contentType: 'application/vnd.ms-excel',
-      extension: 'xls',
-      body: exportService.toExcel(report.data, `${type} alert report`)
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      extension: 'xlsx',
+      body: await exportService.toExcel(report.data, `${type} alert report`, user)
     };
   }
 

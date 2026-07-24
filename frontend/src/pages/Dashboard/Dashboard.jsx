@@ -44,6 +44,8 @@ const Dashboard = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'appointment_date', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalAppointmentsCount, setTotalAppointmentsCount] = useState(0);
+  const [totalPagesCount, setTotalPagesCount] = useState(1);
   const [rescheduleId, setRescheduleId] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('10:00 AM');
@@ -58,21 +60,26 @@ const Dashboard = () => {
     fetchReport(reportType);
   }, [reportType]);
 
+  // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, languageFilter, dateFilter, sortConfig]);
 
+  // Fetch appointments whenever filters or page changes
+  useEffect(() => {
+    fetchAppointments();
+  }, [searchTerm, statusFilter, languageFilter, dateFilter, sortConfig, currentPage]);
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [appointmentsResponse, analyticsResponse, reportResponse] = await Promise.all([
-        getAppointments(),
+      const [analyticsResponse, reportResponse] = await Promise.all([
         getDashboardAnalytics(),
         getReport(reportType),
       ]);
-      setAppointments(appointmentsResponse.data);
       setAnalytics(analyticsResponse.data);
       setReport(reportResponse);
+      await fetchAppointments();
     } catch (error) {
       toast.error('Failed to fetch dashboard data');
       console.error(error);
@@ -83,12 +90,33 @@ const Dashboard = () => {
 
   const fetchAppointments = async () => {
     try {
-      const response = await getAppointments();
-      setAppointments(response.data);
+      const params = {
+        page: currentPage,
+        limit: PAGE_SIZE,
+        sortBy: sortConfig.key,
+        sortOrder: sortConfig.direction,
+      };
+
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter !== 'All') params.status = statusFilter;
+      if (languageFilter !== 'All') params.language = languageFilter;
+      if (dateFilter) params.appointment_date = dateFilter;
+
+      const response = await getAppointments(params);
+      if (response.success) {
+        setAppointments(response.data);
+        setTotalAppointmentsCount(response.total);
+        if (response.pagination) {
+          setTotalPagesCount(response.pagination.totalPages);
+        } else {
+          setTotalPagesCount(1);
+        }
+      }
+
+      // Reload analytics to keep dashboard counters updated
       const analyticsResponse = await getDashboardAnalytics();
       setAnalytics(analyticsResponse.data);
     } catch (error) {
-      toast.error('Failed to fetch appointments');
       console.error(error);
     }
   };
@@ -167,48 +195,18 @@ const Dashboard = () => {
     }
   };
 
-  const filteredAppointments = useMemo(() => {
-    const normalizedSearch = searchTerm.toLowerCase();
-
-    const filtered = appointments.filter((apt) => {
-      const status = getStatus(apt.appointment_date, apt.visited);
-      const dateValue = new Date(apt.appointment_date).toISOString().slice(0, 10);
-      const matchesSearch =
-        apt.patient_name.toLowerCase().includes(normalizedSearch) ||
-        apt.patient_phone.includes(searchTerm) ||
-        dateValue.includes(normalizedSearch) ||
-        status.includes(normalizedSearch) ||
-        apt.language?.toLowerCase().includes(normalizedSearch);
-      const matchesStatus = statusFilter === 'All' || status.toLowerCase() === statusFilter.toLowerCase();
-      const matchesLanguage = languageFilter === 'All' || apt.language === languageFilter;
-      const matchesDate = !dateFilter || dateValue === dateFilter;
-
-      return matchesSearch && matchesStatus && matchesLanguage && matchesDate;
-    });
-
-    return [...filtered].sort((a, b) => {
-      const direction = sortConfig.direction === 'asc' ? 1 : -1;
-      const getValue = (row) => sortConfig.key === 'status' ? getStatus(row.appointment_date, row.visited) : row[sortConfig.key];
-      const first = getValue(a) || '';
-      const second = getValue(b) || '';
-      return String(first).localeCompare(String(second), undefined, { numeric: true }) * direction;
-    });
-  }, [appointments, searchTerm, statusFilter, languageFilter, dateFilter, sortConfig]);
-
-  const paginatedAppointments = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredAppointments.slice(start, start + PAGE_SIZE);
-  }, [filteredAppointments, currentPage]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / PAGE_SIZE));
-
-  const stats = useMemo(() => ({
-    total: appointments.length,
-    upcoming: appointments.filter((a) => getStatus(a.appointment_date, a.visited) === 'upcoming').length,
-    today: appointments.filter((a) => getStatus(a.appointment_date, a.visited) === 'today').length,
-    visited: appointments.filter((a) => getStatus(a.appointment_date, a.visited) === 'visited').length,
-    missed: appointments.filter((a) => getStatus(a.appointment_date, a.visited) === 'missed').length,
-  }), [appointments]);
+  const stats = useMemo(() => {
+    if (!analytics || !analytics.summary) {
+      return { total: 0, upcoming: 0, today: 0, visited: 0, missed: 0 };
+    }
+    return {
+      total: analytics.summary.totalAppointments,
+      upcoming: analytics.summary.scheduledAppointments + analytics.summary.rescheduledAppointments,
+      today: analytics.summary.todaysAppointments,
+      visited: analytics.summary.visitedAppointments,
+      missed: analytics.summary.missedAppointments
+    };
+  }, [analytics]);
 
   const handleSort = (key) => {
     setSortConfig((current) => ({
@@ -240,7 +238,7 @@ const Dashboard = () => {
         <>
           <SchedulerMonitoringCard isDark={isDark} />
           <AnalyticsPanel analytics={analytics} isDark={isDark} />
-          <AppointmentChart appointments={appointments} />
+          <AppointmentChart stats={stats} />
           <ReportPanel
             isDark={isDark}
             reportType={reportType}
@@ -269,8 +267,8 @@ const Dashboard = () => {
       <Card delay={0.4}>
         <AppointmentTable
           isDark={isDark}
-          filteredAppointments={paginatedAppointments}
-          appointments={appointments}
+          filteredAppointments={appointments}
+          appointments={{ length: stats.total }}
           searchTerm={searchTerm}
           statusFilter={statusFilter}
           onMarkVisited={handleMarkVisited}
@@ -285,9 +283,9 @@ const Dashboard = () => {
           sortConfig={sortConfig}
           onSort={handleSort}
           currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={(page) => setCurrentPage(Math.min(Math.max(page, 1), totalPages))}
-          totalFiltered={filteredAppointments.length}
+          totalPages={totalPagesCount}
+          onPageChange={(page) => setCurrentPage(Math.min(Math.max(page, 1), totalPagesCount))}
+          totalFiltered={totalAppointmentsCount}
         />
       </Card>
 

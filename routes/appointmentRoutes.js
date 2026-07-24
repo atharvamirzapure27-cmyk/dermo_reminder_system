@@ -19,9 +19,9 @@ router.put('/:id/visited', appointmentController.markVisited);
 router.put('/:id/missed', appointmentController.markMissed);
 
 // PUT /appointments/:id/cancel - Cancel appointment
-router.put('/:id/cancel', appointmentController.cancelAppointment);
+router.put('/:id/cancel', requireRole(['super_admin', 'admin']), appointmentController.cancelAppointment);
 
 // PUT /appointments/:id/reschedule - Reschedule appointment
-router.put('/:id/reschedule', appointmentController.rescheduleAppointment);
+router.put('/:id/reschedule', requireRole(['super_admin', 'admin']), appointmentController.rescheduleAppointment);
 
 module.exports = router;

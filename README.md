@@ -4,7 +4,7 @@ A production-ready hospital application for managing patient appointments, track
 
 ---
 
-## 1. System Architecture
+## 1. System Architecture & Tech Stack
 
 ```mermaid
 graph TD
@@ -15,10 +15,16 @@ graph TD
     Services --> Repositories[Data Repositories]
     Repositories --> DB[(MySQL Database)]
     
-    Cron[Node-Cron Scheduler] -->|Hourly checks| ReminderService[Reminder Service]
+    Cron[Node-Cron Scheduler] -->|Periodic sweeps| ReminderService[Reminder Service]
     ReminderService --> NotificationManager[Notification Manager]
     NotificationManager --> Twilio[Twilio SMS/WhatsApp/Voice APIs]
 ```
+
+### Technology Stack
+*   **Frontend**: React (SPA), Vite, Tailwind CSS, Lucide icons, Recharts
+*   **Backend**: Node.js, Express.js (REST API), JWT Auth, Node-Cron, PDFKit, ExcelJS
+*   **Database**: MySQL (Prepared statements, custom indexing)
+*   **Communication APIs**: Twilio (SMS API, WhatsApp Sandbox, Voice Call TTS)
 
 The system uses a strict **Controller ➔ Service ➔ Repository** layout ensuring proper separation of concerns:
 *   **Controller**: Handles incoming requests, validates input parameters, and returns REST JSON responses.
@@ -31,16 +37,16 @@ The system uses a strict **Controller ➔ Service ➔ Repository** layout ensuri
 
 ```
 dermo-reminder-system/
-├── config/                 # Config configurations and message templates
+├── config/                 # Configurations and multilingual message templates
 ├── controllers/            # API Controllers (Auth, Patient, Appointment, Analytics, Reports)
 ├── cron/                   # Cron scheduler setups
-├── database/               # Database migration scripts
+├── database/               # Database migration and DDL scripts
 ├── logs/                   # Persistent system log files (app, errors, cron, notifications)
 ├── middleware/             # Route authentication and role restriction guards
 ├── repositories/           # Direct SQL queries and DB connections wrappers
 ├── routes/                 # Express REST endpoint maps
-├── services/               # Core business services (WhatsApp, Voice, Notification Manager)
-├── utils/                  # Centralized file logging and session helper utilities
+├── services/               # Core business services (WhatsApp, Voice, Notification Manager, Exporters)
+├── utils/                  # Centralized file logging, masking, and session helper utilities
 ├── validators/             # Request payload sanitization rules
 ├── frontend/               # React client application (Vite, Tailwind, Recharts)
 │   ├── src/
@@ -48,8 +54,6 @@ dermo-reminder-system/
 │   │   ├── pages/          # Login, add patient, schedules, history dashboards
 │   │   └── services/       # Frontend client api wrappers
 │   └── dist/               # Compiled frontend production assets
-├── Dockerfile              # Multi-stage production build container definition
-├── docker-compose.yml      # Services orchestration file
 ├── server.js               # Entry-point runner
 └── README.md               # Master document
 ```
@@ -84,7 +88,9 @@ erDiagram
         string status
         boolean reminder_3day_sent
         boolean reminder_1day_sent
+        boolean reminder_same_day_sent
         boolean reminder_missed_sent
+        boolean reminder_7day_missed_sent
         string whatsapp_status
         string voice_status
         datetime whatsapp_sent_at
@@ -127,7 +133,40 @@ erDiagram
 
 ---
 
-## 4. API Documentation
+## 4. Reminder Timeline Workflow
+
+Intelligent sweeps run automatically on set cron schedules to capture target appointment windows:
+
+| Timeline | Execution Hour | Target Date Calculation | Active Channels | Purpose |
+| --- | --- | --- | --- | --- |
+| **3-Day Reminder** | 9:00 AM – 6:00 PM | `Appt Date = Current + 3 Days` | SMS + WhatsApp + Voice | Initial warning |
+| **1-Day Reminder** | 9:00 AM – 6:00 PM | `Appt Date = Current + 1 Day` | SMS + WhatsApp + Voice | Final verification |
+| **Same-Day Reminder** | **7:30 AM – 8:00 AM** | `Appt Date = Current + 0 Days` | SMS + WhatsApp + Voice | Action trigger |
+| **Next-Day Missed** | 9:00 AM – 6:00 PM | `Status = 'missed' AND missed_sent = FALSE` | SMS + WhatsApp + Voice | Recall attempt |
+| **7-Day Missed** | 9:00 AM – 6:00 PM | `Appt Date = Current - 7 Days AND Status = 'missed'` | SMS + WhatsApp + Voice | Final fallback |
+
+---
+
+## 5. Role Permissions Matrix
+
+The system restricts access both at the UI components layout layer and on the backend REST controller endpoints:
+
+| Feature / Action | Super Admin | Admin | Receptionist | Backend API Protection |
+| --- | :---: | :---: | :---: | --- |
+| **Register Patients** | Yes | Yes | Yes | Authenticated Session |
+| **Schedule Appointments** | Yes | Yes | Yes | Authenticated Session |
+| **Mark Visited / Missed** | Yes | Yes | Yes | Authenticated Session |
+| **Reschedule Appointments** | Yes | Yes | **No** | Admin role guard |
+| **Cancel Appointments** | Yes | Yes | **No** | Admin role guard |
+| **Access Patient History** | Yes | Yes | **No** | Admin role guard |
+| **View Analytics & Telemetry** | Yes | Yes | **No** | UI hidden / Admin routes guard |
+| **View & Export Reports** | Yes | Yes | **No** | UI hidden / Admin routes guard |
+| **Configure System Toggles** | Yes | Yes | **No** | UI hidden / Admin routes guard |
+| **Staff Accounts Management** | Yes | **No** | **No** | Superadmin routes guard |
+
+---
+
+## 6. API Documentation
 
 ### Authentication:
 *   `POST /auth/login` - Public login endpoint. Returns JWT token.
@@ -135,27 +174,23 @@ erDiagram
 *   `GET /auth/me` - Retrieve metadata of currently authenticated session.
 
 ### Patients Management:
-*   `GET /patients` - Retrieve list of patients.
+*   `GET /patients` - Retrieve list of patients (Supports server-side pagination, searching, sorting).
 *   `POST /patients` - Add new patient.
+*   `GET /patients/:id/history` - Get patient history (Admin/Super Admin only).
 
 ### Appointments Management:
-*   `GET /appointments` - List scheduled appointments.
+*   `GET /appointments` - List scheduled appointments (Supports server-side pagination, searching, sorting, filters).
 *   `POST /appointments` - Schedule new appointment.
-*   `PUT /appointments/:id/reschedule` - Reschedule appointment and reset reminder flags.
+*   `PUT /appointments/:id/reschedule` - Reschedule appointment and synchronize flags (Admin/Super Admin only).
 *   `PUT /appointments/:id/visited` - Mark appointment as Visited.
-*   `PUT /appointments/:id/visited` - Mark appointment as Missed.
-*   `PUT /appointments/:id/cancel` - Cancel appointment.
-
-### Notifications:
-*   `GET /notifications/history` - Retrieve dispatch history log. (Admin/Super Admin only)
-*   `POST /notifications/:id/retry` - Trigger manual retry resend of failed log. (Admin/Super Admin only)
-*   `POST /notifications/test` - Instantly trigger test notifications. (Admin/Super Admin only)
+*   `PUT /appointments/:id/missed` - Mark appointment as Missed.
+*   `PUT /appointments/:id/cancel` - Cancel appointment (Admin/Super Admin only).
 
 ---
 
-## 5. Installation & Execution Guide
+## 7. Installation & Execution Guide
 
-### Prereqs:
+### Prerequisites:
 *   Node.js (v18+)
 *   MySQL (v8.0+)
 *   Twilio Account (Active credentials)
@@ -188,6 +223,7 @@ TWILIO_PHONE_NUMBER=+1...
 TWILIO_WHATSAPP_NUMBER=+14155238886
 
 MOCK_SMS=true  # Set to false to send real SMS, WhatsApp and Voice calls
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 ### Step 3: Run Database Migrations
@@ -212,26 +248,7 @@ npm run dev
 
 ---
 
-## 6. Docker Deployment Guide
-
-To deploy the entire stack using Docker Compose:
-```bash
-# Build and run containers
-docker-compose up -d --build
-```
-This spins up the MySQL server, compiles frontend static pages, starts the Express backend server on port `3001`, and links all components together.
-
----
-
-## 7. User & Admin Manual
-
-### Receptionist Workflow:
-1.  **Register Patients**: Enter patient details, telephone numbers, and preferred language (English/Hindi/Marathi).
-2.  **Schedule Appointment**: Specify date, consultant doctor, and time slot.
-3.  **Appointment Desk Actions**: Check-in patients (Visited), mark Missed, Cancel schedules, or Reschedule.
-
-### Admin Operations:
-1.  **Staff Accounts**: Manage receptionists and admin roles.
-2.  **Track Alerts History**: View the delivery status (`Sent`, `Failed`, `Retried`) of all alerts.
-3.  **Manual Resend**: Press "Retry" next to any failed SMS/WhatsApp/Voice log to trigger an immediate resend attempt.
-4.  **Export Data**: Download CSV/Excel reports and analytics summaries.
+## 8. Future Scope & Roadmap
+*   **Scale Multi-Departmentally**: Expand tables to support hospital-wide scheduling (Orthopedics, Pediatrics, etc.) with custom message templates.
+*   **Two-Way Conversations**: Implement Twilio webhook endpoints to process quick-replies (e.g. reply '1' to confirm rescheduling).
+*   **EHR Integration**: Synchronize clinic check-ins with local hospital Electronic Health Records databases automatically.

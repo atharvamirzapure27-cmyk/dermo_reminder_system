@@ -1,6 +1,6 @@
 const patientRepository = require('../repositories/patientRepository');
 
-const getPatients = async () => patientRepository.findAll();
+const getPatients = async (query = {}) => patientRepository.findAll(query);
 
 const createPatient = async (patientData) => patientRepository.create(patientData);
 

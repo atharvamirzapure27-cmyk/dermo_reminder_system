@@ -21,7 +21,7 @@ const getTimestamp = () => {
 const appendToLogFile = (filename, level, message, details = null) => {
   const filePath = path.join(LOGS_DIR, filename);
   const logMessage = `[${getTimestamp()}] [${level.toUpperCase()}] ${message} ${details ? JSON.stringify(details) : ''}\n`;
-  
+
   // Asynchronously append to file to avoid blocking event loop
   fs.appendFile(filePath, logMessage, (err) => {
     if (err) {
@@ -46,17 +46,17 @@ const logger = {
   info: (message, details = null) => {
     appendToLogFile('app.log', 'info', message, details);
   },
-  
+
   error: (message, details = null) => {
     appendToLogFile('errors.log', 'error', message, details);
     appendToLogFile('app.log', 'error', message, details);
   },
-  
+
   cron: (message, details = null) => {
     appendToLogFile('cron.log', 'cron', message, details);
     appendToLogFile('app.log', 'cron', message, details);
   },
-  
+
   notification: (message, details = null) => {
     appendToLogFile('notifications.log', 'notification', message, details);
     appendToLogFile('app.log', 'notification', message, details);

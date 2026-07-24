@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, Languages, Users, Download, HelpCircle } from 'lucide-react';
+import { BarChart3, CalendarDays, Users, Download, HelpCircle } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import Card from '../Card';
 import { API_URL } from '../../services/api';
@@ -104,8 +104,8 @@ const AnalyticsPanel = ({ analytics, isDark }) => {
         </div>
       </Card>
 
-      {/* Graphical Trends & Lang Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Graphical Trends */}
+      <div className="grid grid-cols-1 gap-4">
         <Card>
           <h4 className={`font-bold text-sm mb-4 ${isDark ? 'text-white' : 'text-blue-900'}`}>
             Monthly Schedule Volume
@@ -123,29 +123,6 @@ const AnalyticsPanel = ({ analytics, isDark }) => {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-gray-500">No trend data available</div>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <h4 className={`font-bold text-sm mb-4 flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-blue-900'}`}>
-            <Languages className="w-4 h-4 text-blue-600" />
-            Patient Language Preference
-          </h4>
-          <div className="h-60 flex items-center justify-center">
-            {languageDistribution && languageDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={languageDistribution} dataKey="patients" nameKey="language" outerRadius={75} label>
-                    {languageDistribution.map((entry, index) => (
-                      <Cell key={entry.language} fill={chartColors[index % chartColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-gray-500">No language data available</div>
             )}
           </div>
         </Card>

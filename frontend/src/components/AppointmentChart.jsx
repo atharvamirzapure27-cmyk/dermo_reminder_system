@@ -2,53 +2,66 @@ import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useTheme } from '../context/ThemeContext';
 
-const COLORS = {
-  light: ['#0ea5e9', '#8b5cf6', '#10b981', '#ef4444'],
-  dark: ['#38bdf8', '#a78bfa', '#34d399', '#f87171']
+const COLOR_MAP = {
+  Upcoming: { light: '#8b5cf6', dark: '#a78bfa' }, // Purple
+  Today: { light: '#0ea5e9', dark: '#38bdf8' },    // Blue
+  Visited: { light: '#10b981', dark: '#34d399' },  // Green
+  Missed: { light: '#ef4444', dark: '#f87171' }    // Red
 };
 
-const AppointmentChart = ({ appointments }) => {
+const AppointmentChart = ({ appointments, stats: passedStats }) => {
   const { isDark } = useTheme();
 
-  const getStatus = (appointmentDate, reminderSent) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const apptDate = new Date(appointmentDate);
-    apptDate.setHours(0, 0, 0, 0);
+  const chartStats = passedStats ? {
+    Upcoming: passedStats.upcoming ?? 0,
+    Today: passedStats.today ?? 0,
+    Visited: passedStats.visited ?? 0,
+    Missed: passedStats.missed ?? 0
+  } : (() => {
+    const stats = {
+      Upcoming: 0,
+      Today: 0,
+      Visited: 0,
+      Missed: 0
+    };
 
-    if (reminderSent && apptDate < today) return 'Visited';
-    if (apptDate < today) return 'Missed';
-    if (apptDate.getTime() === today.getTime()) return 'Today';
-    return 'Upcoming';
-  };
+    if (appointments && Array.isArray(appointments)) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-  const stats = {
-    Upcoming: 0,
-    Today: 0,
-    Visited: 0,
-    Missed: 0
-  };
+      appointments.forEach(apt => {
+        const apptDate = new Date(apt.appointment_date);
+        apptDate.setHours(0, 0, 0, 0);
 
-  appointments.forEach(apt => {
-    const status = getStatus(apt.appointment_date, apt.reminder_sent);
-    stats[status]++;
-  });
+        if (apt.visited) {
+          stats.Visited++;
+        } else if (apt.status === 'missed') {
+          stats.Missed++;
+        } else if (apptDate < today) {
+          stats.Missed++;
+        } else if (apptDate.getTime() === today.getTime()) {
+          stats.Today++;
+        } else {
+          stats.Upcoming++;
+        }
+      });
+    }
+    return stats;
+  })();
 
   const pieData = [
-    { name: 'Upcoming', value: stats.Upcoming },
-    { name: 'Today', value: stats.Today },
-    { name: 'Visited', value: stats.Visited },
-    { name: 'Missed', value: stats.Missed }
+    { name: 'Upcoming', value: chartStats.Upcoming },
+    { name: 'Today', value: chartStats.Today },
+    { name: 'Visited', value: chartStats.Visited },
+    { name: 'Missed', value: chartStats.Missed }
   ].filter(item => item.value > 0);
 
   const barData = [
-    { name: 'Upcoming', count: stats.Upcoming },
-    { name: 'Today', count: stats.Today },
-    { name: 'Visited', count: stats.Visited },
-    { name: 'Missed', count: stats.Missed }
+    { name: 'Upcoming', count: chartStats.Upcoming },
+    { name: 'Today', count: chartStats.Today },
+    { name: 'Visited', count: chartStats.Visited },
+    { name: 'Missed', count: chartStats.Missed }
   ];
-
-  const colors = isDark ? COLORS.dark : COLORS.light;
 
   return (
     <motion.div
@@ -79,7 +92,7 @@ const AppointmentChart = ({ appointments }) => {
               animationDuration={800}
             >
               {pieData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                <Cell key={`cell-${index}`} fill={isDark ? COLOR_MAP[entry.name].dark : COLOR_MAP[entry.name].light} />
               ))}
             </Pie>
             <Tooltip 
@@ -130,7 +143,7 @@ const AppointmentChart = ({ appointments }) => {
               animationDuration={800}
             >
               {barData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                <Cell key={`cell-${index}`} fill={isDark ? COLOR_MAP[entry.name].dark : COLOR_MAP[entry.name].light} />
               ))}
             </Bar>
           </BarChart>

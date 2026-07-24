@@ -3,7 +3,7 @@ const auditService = require('../services/auditService');
 
 exports.getReport = async (req, res, next) => {
   try {
-    const type = ['daily', 'weekly', 'monthly', 'missed', 'reminders'].includes(req.params.type) ? req.params.type : 'daily';
+    const type = ['daily', 'weekly', 'monthly', 'quarterly', 'missed', 'reminders'].includes(req.params.type) ? req.params.type : 'daily';
     const report = await reportService.getReport(type);
     
     await auditService.log(req, 'report_viewed', `Viewed ${type} report`);
@@ -19,8 +19,8 @@ exports.getReport = async (req, res, next) => {
 
 exports.exportReport = async (req, res, next) => {
   try {
-    const type = ['daily', 'weekly', 'monthly', 'missed', 'reminders'].includes(req.params.type) ? req.params.type : 'daily';
-    const file = await reportService.exportReport(type, req.params.format);
+    const type = ['daily', 'weekly', 'monthly', 'quarterly', 'missed', 'reminders'].includes(req.params.type) ? req.params.type : 'daily';
+    const file = await reportService.exportReport(type, req.params.format, req.user);
     
     await auditService.log(req, 'report_exported', `Exported ${type} report in ${req.params.format} format`);
 

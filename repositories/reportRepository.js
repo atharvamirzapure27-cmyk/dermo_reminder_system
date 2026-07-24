@@ -4,6 +4,7 @@ const reportDateRanges = {
   daily: 'a.appointment_date = CURDATE()',
   weekly: 'YEARWEEK(a.appointment_date, 1) = YEARWEEK(CURDATE(), 1)',
   monthly: 'YEAR(a.appointment_date) = YEAR(CURDATE()) AND MONTH(a.appointment_date) = MONTH(CURDATE())',
+  quarterly: 'YEAR(a.appointment_date) = YEAR(CURDATE()) AND QUARTER(a.appointment_date) = QUARTER(CURDATE())',
   missed: 'a.visited = FALSE AND a.appointment_date < CURDATE()',
   reminders: '1 = 1'
 };
