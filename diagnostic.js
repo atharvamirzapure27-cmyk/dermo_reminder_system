@@ -45,8 +45,11 @@ async function runDiagnostics() {
   let token = null;
   let headers = {};
 
-  // Test 1: Backend Server & Login Auth
-  await test('Backend Server & Superadmin Authentication', async () => {
+  let receptionistToken = null;
+  let receptionistHeaders = {};
+
+  // Test 1: Backend Server & Admin Authentication
+  await test('Backend Server & Admin Authentication', async () => {
     results.total++;
     // Get server status
     const statusRes = await axios.get(BASE_URL);
@@ -55,19 +58,37 @@ async function runDiagnostics() {
     }
     log(colors.green, `   Server response: ${statusRes.data.message}`);
 
-    // Attempt login
+    // Attempt login as Admin
     const loginRes = await axios.post(`${BASE_URL}/auth/login`, {
-      username: 'superadmin',
-      password: 'SuperAdmin@123'
+      username: 'Dermatology01',
+      password: 'Dermo022026'
     });
 
     if (loginRes.data.success) {
       token = loginRes.data.data.token;
       headers = { Authorization: `Bearer ${token}` };
-      log(colors.green, '   Superadmin authenticated successfully.');
+      log(colors.green, '   Admin authenticated successfully.');
       results.passed++;
     } else {
-      throw new Error('Superadmin authentication failed');
+      throw new Error('Admin authentication failed');
+    }
+  });
+
+  // Test 1b: Receptionist Authentication
+  await test('Receptionist Authentication', async () => {
+    results.total++;
+    const loginRes = await axios.post(`${BASE_URL}/auth/login`, {
+      username: 'Dermatology01',
+      password: 'Dermo012026'
+    });
+
+    if (loginRes.data.success) {
+      receptionistToken = loginRes.data.data.token;
+      receptionistHeaders = { Authorization: `Bearer ${receptionistToken}` };
+      log(colors.green, '   Receptionist authenticated successfully.');
+      results.passed++;
+    } else {
+      throw new Error('Receptionist authentication failed');
     }
   });
 
@@ -150,7 +171,7 @@ async function runDiagnostics() {
     results.total++;
     if (!testAppointmentId) throw new Error('No test appointment ID');
 
-    const response = await axios.put(`${BASE_URL}/appointments/${testAppointmentId}/visited`, {}, { headers });
+    const response = await axios.put(`${BASE_URL}/appointments/${testAppointmentId}/visited`, {}, { headers: receptionistHeaders });
     
     if (response.data.success) {
       log(colors.green, '   Appointment marked as visited');
