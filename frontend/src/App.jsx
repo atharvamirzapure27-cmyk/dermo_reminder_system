@@ -39,7 +39,7 @@ function AppContent() {
       case 'add-patient':
         return <AddPatient />;
       case 'add-appointment':
-        return <AddAppointment />;
+        return isAdminOrSuperAdmin ? <AddAppointment /> : <Dashboard />;
       case 'notification-history':
         return isAdminOrSuperAdmin ? <NotificationHistory isDark={isDark} /> : <Dashboard />;
       case 'notification-settings':

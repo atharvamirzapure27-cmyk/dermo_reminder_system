@@ -16,12 +16,12 @@ async function createAuthTables() {
     
     console.log('✅ Connected to database');
 
-    // 1. Create users table
+    // 1. Create users table (no UNIQUE on username column)
     console.log('➕ Creating users table...');
     await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
+        username VARCHAR(50) NOT NULL,
         password VARCHAR(255) NOT NULL,
         role ENUM('super_admin', 'admin', 'receptionist') NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -29,6 +29,14 @@ async function createAuthTables() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     console.log('   ✅ Users table ready.');
+
+    // Try to drop the unique index if it exists from a previous migration
+    try {
+      await connection.query('ALTER TABLE users DROP INDEX username');
+      console.log('   ✅ Removed unique index constraint from users table.');
+    } catch (err) {
+      // Index might not exist, ignore
+    }
 
     // 2. Create audit_logs table
     console.log('➕ Creating audit_logs table...');
@@ -46,25 +54,32 @@ async function createAuthTables() {
     `);
     console.log('   ✅ Audit logs table ready.');
 
-    // 3. Insert default super admin user if not exists
-    const defaultUsername = 'superadmin';
-    const defaultPassword = 'SuperAdmin@123';
+    // 3. Clear existing user accounts to guarantee only requested credentials exist
+    console.log('🧹 Clearing existing user accounts...');
+    await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+    await connection.query('TRUNCATE TABLE users');
+    await connection.query('SET FOREIGN_KEY_CHECKS = 1');
+    console.log('   ✅ User accounts database cleared.');
+
+    // 4. Seed new production credentials
+    console.log('🌱 Seeding production credentials...');
+    const salt = await bcrypt.genSalt(10);
     
-    const [existing] = await connection.query('SELECT id FROM users WHERE username = ?', [defaultUsername]);
-    
-    if (existing.length === 0) {
-      console.log(`➕ Seeding default Super Admin user: '${defaultUsername}'...`);
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(defaultPassword, salt);
-      
-      await connection.query(
-        'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-        [defaultUsername, hashedPassword, 'super_admin']
-      );
-      console.log('   ✅ Default Super Admin seeded.');
-    } else {
-      console.log('   ℹ️  Default Super Admin user already exists.');
-    }
+    // Seed Receptionist
+    const receptionistPass = await bcrypt.hash('Dermo012026', salt);
+    await connection.query(
+      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+      ['Dermatology01', receptionistPass, 'receptionist']
+    );
+    console.log('   ✅ Receptionist user seeded (Dermatology01 / Dermo012026).');
+
+    // Seed Admin
+    const adminPass = await bcrypt.hash('Dermo022026', salt);
+    await connection.query(
+      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+      ['Dermatology01', adminPass, 'admin']
+    );
+    console.log('   ✅ Admin user seeded (Dermatology01 / Dermo022026).');
     
     console.log('\n🎉 Authentication database migration complete!\n');
   } catch (error) {

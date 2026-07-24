@@ -267,6 +267,9 @@ const Dashboard = () => {
       <Card delay={0.4}>
         <AppointmentTable
           isDark={isDark}
+          isReceptionist={isReceptionist}
+          isAdmin={isAdmin}
+          isSuperAdmin={isSuperAdmin}
           filteredAppointments={appointments}
           appointments={{ length: stats.total }}
           searchTerm={searchTerm}

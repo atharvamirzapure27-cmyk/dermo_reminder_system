@@ -15,9 +15,10 @@ const getUserById = async (id) => {
 };
 
 const createUser = async ({ username, password, role }) => {
-  const existingUser = await userRepository.findByUsername(username);
-  if (existingUser) {
-    throw new HttpError(409, 'Username already exists');
+  const existingUsers = await userRepository.findByUsername(username);
+  const duplicateRole = existingUsers.find(u => u.role === role);
+  if (duplicateRole) {
+    throw new HttpError(409, 'User with this role and username already exists');
   }
 
   const salt = await bcrypt.genSalt(10);

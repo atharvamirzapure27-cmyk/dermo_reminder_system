@@ -8,28 +8,36 @@ const login = async (username, password) => {
     throw new HttpError(400, 'Username and password are required');
   }
 
-  const user = await userRepository.findByUsername(username);
-  if (!user) {
+  const users = await userRepository.findByUsername(username);
+  if (!users || users.length === 0) {
     throw new HttpError(401, 'Invalid username or password');
   }
 
-  const isPasswordMatch = await bcrypt.compare(password, user.password);
-  if (!isPasswordMatch) {
+  let matchedUser = null;
+  for (const u of users) {
+    const isPasswordMatch = await bcrypt.compare(password, u.password);
+    if (isPasswordMatch) {
+      matchedUser = u;
+      break;
+    }
+  }
+
+  if (!matchedUser) {
     throw new HttpError(401, 'Invalid username or password');
   }
 
   const token = signToken({
-    id: user.id,
-    username: user.username,
-    role: user.role
+    id: matchedUser.id,
+    username: matchedUser.username,
+    role: matchedUser.role
   });
 
   return {
     token,
     user: {
-      id: user.id,
-      username: user.username,
-      role: user.role
+      id: matchedUser.id,
+      username: matchedUser.username,
+      role: matchedUser.role
     }
   };
 };

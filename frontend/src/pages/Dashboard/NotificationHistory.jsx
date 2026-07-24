@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   RefreshCw, CheckCircle, AlertCircle, MessageSquare, PhoneCall, 
-  MessageCircle, ChevronLeft, ChevronRight, Send, Search, Filter, Calendar, ArrowUpDown
+  MessageCircle, ChevronLeft, ChevronRight, Search, Filter, Calendar, ArrowUpDown
 } from 'lucide-react';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
-import { getNotificationsHistory, retryNotification, triggerNotificationTest } from '../../services/api';
+import { getNotificationsHistory, retryNotification } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const NotificationHistory = ({ isDark }) => {
@@ -18,10 +18,8 @@ const NotificationHistory = ({ isDark }) => {
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [channelFilter, setChannelFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [channelFilter, setChannelFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   // Sorting state
   const [sortBy, setSortBy] = useState('created_at');
@@ -106,29 +104,7 @@ const NotificationHistory = ({ isDark }) => {
     }
   };
 
-  const handleTriggerTest = async (e) => {
-    e.preventDefault();
-    if (!testAptId) {
-      toast.error('Please enter a valid Appointment ID');
-      return;
-    }
 
-    try {
-      setSendingTest(true);
-      toast.loading('Triggering manual notification test dispatches...', { id: 'test-toast' });
-      const res = await triggerNotificationTest(testAptId);
-      if (res.success) {
-        toast.success('Test notifications dispatched successfully!', { id: 'test-toast' });
-        setTestAptId('');
-        fetchLogs();
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to dispatch test notification', { id: 'test-toast' });
-      console.error(err);
-    } finally {
-      setSendingTest(false);
-    }
-  };
 
   const getChannelBadge = (channel) => {
     const config = {
@@ -212,38 +188,9 @@ const NotificationHistory = ({ isDark }) => {
         </div>
       </div>
 
-      {/* Trigger Channel Tests & Filter Bar Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Test Dispatch Form Card */}
-        <div className="lg:col-span-1">
-          <Card isDark={isDark} className="h-full flex flex-col justify-between">
-            <div>
-              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Trigger Channel Test
-              </h3>
-              <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Enter an active Appointment ID to dispatch test alerts across channels.
-              </p>
-              <form onSubmit={handleTriggerTest} className="space-y-3">
-                <input
-                  type="number"
-                  placeholder="Appointment ID (e.g. 1)"
-                  value={testAptId}
-                  onChange={(e) => setTestAptId(e.target.value)}
-                  className={`input-modern w-full text-xs ${isDark ? 'text-white bg-gray-800' : 'bg-white'}`}
-                  required
-                />
-                <Button type="submit" className="w-full justify-center text-xs py-2" disabled={sendingTest}>
-                  <Send className="w-3.5 h-3.5 mr-1.5" />
-                  {sendingTest ? 'Dispatching...' : 'Dispatch Test Alert'}
-                </Button>
-              </form>
-            </div>
-          </Card>
-        </div>
-
-        {/* Multi-Criteria Filters Bar */}
-        <div className="lg:col-span-3">
+      {/* Multi-Criteria Filters Bar */}
+      <div className="grid grid-cols-1 gap-6">
+        <div className="lg:col-span-4">
           <Card isDark={isDark} className="h-full">
             <div className="flex items-center justify-between mb-4">
               <h3 className={`text-lg font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>

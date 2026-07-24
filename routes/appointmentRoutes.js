@@ -13,10 +13,10 @@ router.post('/', appointmentController.createAppointment);
 router.post('/reminders/trigger', requireRole(['super_admin', 'admin']), appointmentController.triggerReminders);
 
 // PUT /appointments/:id/visited - Mark as visited
-router.put('/:id/visited', appointmentController.markVisited);
+router.put('/:id/visited', requireRole(['receptionist', 'super_admin']), appointmentController.markVisited);
 
 // PUT /appointments/:id/missed - Mark as missed
-router.put('/:id/missed', appointmentController.markMissed);
+router.put('/:id/missed', requireRole(['receptionist', 'super_admin']), appointmentController.markMissed);
 
 // PUT /appointments/:id/cancel - Cancel appointment
 router.put('/:id/cancel', requireRole(['super_admin', 'admin']), appointmentController.cancelAppointment);

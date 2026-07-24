@@ -3,7 +3,6 @@ const appointmentRepository = require('../repositories/appointmentRepository');
 const settingsRepository = require('../repositories/settingsRepository');
 const notificationManager = require('../services/notificationManager');
 const auditService = require('../services/auditService');
-const { get1DayReminderMessage } = require('../services/reminderMessageService');
 const { getSchedulerState } = require('../cron/reminderCron');
 
 /**
@@ -59,45 +58,7 @@ exports.retryFailedNotification = async (req, res, next) => {
   }
 };
 
-/**
- * Manually dispatch test notification sweep across all channels
- */
-exports.triggerNotificationTest = async (req, res, next) => {
-  try {
-    const appointmentId = Number(req.body.appointment_id);
-    if (!appointmentId || isNaN(appointmentId)) {
-      return res.status(400).json({ success: false, message: 'appointment_id is required' });
-    }
 
-    const appointment = await appointmentRepository.findById(appointmentId);
-    if (!appointment) {
-      return res.status(404).json({ success: false, message: 'Appointment record not found' });
-    }
-
-    console.log(`[Admin] Triggering E2E test notifications for appointment ID=${appointmentId}...`);
-
-    const text = get1DayReminderMessage(appointment);
-    const results = await notificationManager.sendAlertsAcrossChannels({
-      appointment,
-      messageType: '1day_reminder',
-      messageText: text
-    });
-
-    await auditService.log(
-      req,
-      'test_notifications_triggered',
-      `Manually triggered test dispatches for appointment ID=${appointmentId}`
-    );
-
-    res.json({
-      success: true,
-      message: 'Test notifications dispatched successfully',
-      data: results
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Retrieve current scheduler monitoring status & statistics

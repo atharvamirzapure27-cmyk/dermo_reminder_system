@@ -2,7 +2,7 @@ const db = require('../db');
 
 const findByUsername = async (username) => {
   const [rows] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
-  return rows[0] || null;
+  return rows;
 };
 
 const findById = async (id) => {

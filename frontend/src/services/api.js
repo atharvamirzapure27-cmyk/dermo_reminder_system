@@ -157,10 +157,6 @@ export const retryNotification = async (id) => {
   return response.data;
 };
 
-export const triggerNotificationTest = async (appointmentId) => {
-  const response = await api.post('/notifications/test', { appointment_id: appointmentId });
-  return response.data;
-};
 
 export const getSchedulerStatus = async () => {
   const response = await api.get('/notifications/scheduler-status');

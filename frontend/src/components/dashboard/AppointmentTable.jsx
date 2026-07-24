@@ -20,7 +20,13 @@ const AppointmentTable = ({
   totalPages,
   onPageChange,
   totalFiltered,
+  isReceptionist,
+  isAdmin,
+  isSuperAdmin,
 }) => {
+  const showMarkActions = isReceptionist || (!isReceptionist && !isAdmin && !isSuperAdmin);
+  const showRescheduleCancel = isAdmin || isSuperAdmin || (!isReceptionist && !isAdmin && !isSuperAdmin);
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       scheduled: { color: isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700', icon: Calendar, label: 'Scheduled' },
@@ -112,29 +118,41 @@ const AppointmentTable = ({
                             <Phone className="w-3.5 h-3.5" />
                             Call
                           </a>
-                          <button onClick={() => onViewHistory(apt.patient_id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`} title={`View ${apt.patient_name}'s history`}>
-                            <History className="w-3.5 h-3.5" />
-                            History
-                          </button>
+                          
+                          {showRescheduleCancel && (
+                            <button onClick={() => onViewHistory(apt.patient_id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`} title={`View ${apt.patient_name}'s history`}>
+                              <History className="w-3.5 h-3.5" />
+                              History
+                            </button>
+                          )}
                           
                           {isActive && (
                             <>
-                              <button onClick={() => onMarkVisited(apt.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-100 hover:bg-green-200 text-green-700'}`}>
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                Visited
-                              </button>
-                              <button onClick={() => onMarkMissed(apt.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 hover:bg-red-100 text-red-600'}`}>
-                                <XCircle className="w-3.5 h-3.5" />
-                                Missed
-                              </button>
-                              <button onClick={() => onCancelAppointment(apt.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-gray-800 text-gray-400 hover:bg-gray-755/50' : 'bg-gray-50 hover:bg-gray-100 text-gray-600'}`}>
-                                <XCircle className="w-3.5 h-3.5" />
-                                Cancel
-                              </button>
-                              <button onClick={() => onRescheduleClick(apt.id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                Reschedule
-                              </button>
+                              {showMarkActions && (
+                                <>
+                                  <button onClick={() => onMarkVisited(apt.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' : 'bg-green-100 hover:bg-green-200 text-green-700'}`}>
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                    Visited
+                                  </button>
+                                  <button onClick={() => onMarkMissed(apt.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 hover:bg-red-100 text-red-600'}`}>
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    Missed
+                                  </button>
+                                </>
+                              )}
+                              
+                              {showRescheduleCancel && (
+                                <>
+                                  <button onClick={() => onCancelAppointment(apt.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-gray-800 text-gray-400 hover:bg-gray-755/50' : 'bg-gray-50 hover:bg-gray-100 text-gray-600'}`}>
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    Cancel
+                                  </button>
+                                  <button onClick={() => onRescheduleClick(apt.id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    Reschedule
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                         </div>

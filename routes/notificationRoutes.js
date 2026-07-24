@@ -16,7 +16,4 @@ router.get('/history', notificationController.getNotificationsHistory);
 // POST /notifications/:id/retry - Resend a failed notification
 router.post('/:id/retry', notificationController.retryFailedNotification);
 
-// POST /notifications/test - Trigger manual notification test dispatches
-router.post('/test', notificationController.triggerNotificationTest);
-
 module.exports = router;

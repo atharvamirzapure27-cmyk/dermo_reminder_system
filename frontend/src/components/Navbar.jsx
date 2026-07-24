@@ -12,10 +12,10 @@ const Navbar = ({ currentPage, setCurrentPage }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'add-patient', label: 'Add Patient', icon: Users },
-    { id: 'add-appointment', label: 'Add Appointment', icon: PlusCircle },
   ];
 
   if (isAdminOrSuperAdmin) {
+    navItems.push({ id: 'add-appointment', label: 'Add Appointment', icon: PlusCircle });
     navItems.push({ id: 'notification-history', label: 'Alert History', icon: Calendar });
     navItems.push({ id: 'notification-settings', label: 'Channel Settings', icon: Sliders });
   }
