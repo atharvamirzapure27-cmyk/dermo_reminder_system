@@ -70,8 +70,8 @@ const sendAlertsAcrossChannels = async ({ appointment, messageType, messageText 
       // 3. Update appointment tracking fields
       await notificationRepository.updateAppointmentStatusFlags(appointment.id, channel, result.success, result.error);
 
-      // 4. Update legacy columns on SMS success
-      if (channel === 'sms' && result.success) {
+      // 4. Update appointment reminder flags on any channel success
+      if (result.success) {
         if (messageType === '3day_reminder') {
           await appointmentRepository.markReminder3DaySent(appointment.id);
         } else if (messageType === '1day_reminder') {
@@ -152,19 +152,17 @@ const retryFailedNotification = async (logId) => {
     // Update appointment status indicators
     await notificationRepository.updateAppointmentStatusFlags(logEntry.appointment_id, logEntry.channel, true, null);
     
-    // Update legacy flags on SMS success
-    if (logEntry.channel === 'sms') {
-      if (logEntry.message_type === '3day_reminder') {
-        await appointmentRepository.markReminder3DaySent(logEntry.appointment_id);
-      } else if (logEntry.message_type === '1day_reminder') {
-        await appointmentRepository.markReminderSent(logEntry.appointment_id);
-      } else if (logEntry.message_type === 'same_day_reminder') {
-        await appointmentRepository.markReminderSameDaySent(logEntry.appointment_id);
-      } else if (logEntry.message_type === 'missed_reminder') {
-        await appointmentRepository.markMissedSent(logEntry.appointment_id);
-      } else if (logEntry.message_type === '7day_missed_reminder') {
-        await appointmentRepository.markReminder7DayMissedSent(logEntry.appointment_id);
-      }
+    // Update reminder flags on any successful retry
+    if (logEntry.message_type === '3day_reminder') {
+      await appointmentRepository.markReminder3DaySent(logEntry.appointment_id);
+    } else if (logEntry.message_type === '1day_reminder') {
+      await appointmentRepository.markReminderSent(logEntry.appointment_id);
+    } else if (logEntry.message_type === 'same_day_reminder') {
+      await appointmentRepository.markReminderSameDaySent(logEntry.appointment_id);
+    } else if (logEntry.message_type === 'missed_reminder') {
+      await appointmentRepository.markMissedSent(logEntry.appointment_id);
+    } else if (logEntry.message_type === '7day_missed_reminder') {
+      await appointmentRepository.markReminder7DayMissedSent(logEntry.appointment_id);
     }
 
     return { success: true, sid: result.sid };

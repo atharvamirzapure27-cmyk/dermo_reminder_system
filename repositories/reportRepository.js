@@ -15,6 +15,8 @@ const getReportRows = async (type) => {
     SELECT a.id, p.name AS patient_name, p.phone AS patient_phone, p.language,
            a.appointment_date, a.visited, a.reminder_sent, a.missed_sent,
            CASE
+             WHEN a.status = 'cancelled' THEN 'cancelled'
+             WHEN a.status = 'rescheduled' THEN 'rescheduled'
              WHEN a.visited = TRUE THEN 'visited'
              WHEN a.appointment_date < CURDATE() THEN 'missed'
              WHEN a.appointment_date = CURDATE() THEN 'today'

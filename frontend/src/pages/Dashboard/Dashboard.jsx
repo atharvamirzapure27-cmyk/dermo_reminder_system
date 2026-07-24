@@ -73,12 +73,14 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [analyticsResponse, reportResponse] = await Promise.all([
-        getDashboardAnalytics(),
-        getReport(reportType),
-      ]);
-      setAnalytics(analyticsResponse.data);
-      setReport(reportResponse);
+      if (!isReceptionist) {
+        const [analyticsResponse, reportResponse] = await Promise.all([
+          getDashboardAnalytics(),
+          getReport(reportType),
+        ]);
+        setAnalytics(analyticsResponse.data);
+        setReport(reportResponse);
+      }
       await fetchAppointments();
     } catch (error) {
       toast.error('Failed to fetch dashboard data');
@@ -113,15 +115,18 @@ const Dashboard = () => {
         }
       }
 
-      // Reload analytics to keep dashboard counters updated
-      const analyticsResponse = await getDashboardAnalytics();
-      setAnalytics(analyticsResponse.data);
+      // Reload analytics to keep dashboard counters updated for admins
+      if (!isReceptionist) {
+        const analyticsResponse = await getDashboardAnalytics();
+        setAnalytics(analyticsResponse.data);
+      }
     } catch (error) {
       console.error(error);
     }
   };
 
   const fetchReport = async (type) => {
+    if (isReceptionist) return;
     try {
       const response = await getReport(type);
       setReport(response);
@@ -287,7 +292,10 @@ const Dashboard = () => {
           onSort={handleSort}
           currentPage={currentPage}
           totalPages={totalPagesCount}
-          onPageChange={(page) => setCurrentPage(Math.min(Math.max(page, 1), totalPagesCount))}
+          onPageChange={(page) => {
+            setCurrentPage(Math.min(Math.max(page, 1), totalPagesCount));
+            window.scrollTo({ top: 350, behavior: 'smooth' });
+          }}
           totalFiltered={totalAppointmentsCount}
         />
       </Card>

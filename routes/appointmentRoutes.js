@@ -7,7 +7,7 @@ const { requireRole } = require('../middleware/authMiddleware');
 router.get('/', appointmentController.getAppointments);
 
 // POST /appointments - Create new appointment
-router.post('/', appointmentController.createAppointment);
+router.post('/', requireRole(['super_admin', 'admin']), appointmentController.createAppointment);
 
 // POST /appointments/reminders/trigger - Trigger manual reminders check
 router.post('/reminders/trigger', requireRole(['super_admin', 'admin']), appointmentController.triggerReminders);

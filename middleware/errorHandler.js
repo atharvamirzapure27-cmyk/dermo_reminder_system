@@ -5,7 +5,7 @@ const errorHandler = (err, req, res, next) => {
 
   logger.error(status === 500 ? 'Unhandled error' : 'Request error', {
     message: err.message,
-    stack: err.stack,
+    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
     status
   });
 
